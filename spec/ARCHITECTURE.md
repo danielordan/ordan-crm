@@ -32,7 +32,7 @@
 | Frontend | Next.js + React + TypeScript (App Router) |
 | Frontend server / BFF | Next.js Route Handlers + Middleware |
 | Backend | Node.js 24 LTS + NestJS + TypeScript |
-| Database | MongoDB Atlas |
+| Database | Supabase (PostgreSQL מנוהל). ה-Backend מתחבר ישירות עם `pg` (node-postgres) |
 | PDF Text Extraction | Mozilla PDF.js |
 | AI Extraction | OpenAI Responses API + Structured Outputs (מודל ברירת מחדל: GPT-5.4 mini) |
 | Email (התראות בלבד) | Amazon SES |
@@ -73,7 +73,8 @@
 │  Notification Module                │
 └───────┬──────────┬──────────┬───────┘
         ▼          ▼          ▼
-  MongoDB Atlas  OpenAI    Amazon SES
+  Supabase       OpenAI    Amazon SES
+  (PostgreSQL)
                           (alerts to admin)
 ```
 
@@ -94,7 +95,7 @@
 
 ה-Frontend **לא**:
 - מחלץ מידע מה-PDF.
-- ניגש ישירות ל-OpenAI, ל-MongoDB או ל-SES.
+- ניגש ישירות ל-OpenAI, ל-Database (Supabase) או ל-SES.
 - מבצע Duplicate Detection או מחשב סטטוסים.
 - חושף משתני סביבה סודיים לדפדפן. אין שימוש ב-`NEXT_PUBLIC_*` עבור ערכים סודיים.
 
@@ -241,7 +242,7 @@ return { result: "created", processingStatus, clientId, notificationSent }
 ## 8. AI Extraction
 
 ### 8.1 תפקיד ה-AI
-OpenAI משמש **רק לחילוץ מובנה של מידע מהטקסט**. המודל לא אחראי ל-Duplicate Detection, לחישוב סטטוסים, לכתיבה ל-MongoDB או להשלמת מידע שלא מופיע במסמך.
+OpenAI משמש **רק לחילוץ מובנה של מידע מהטקסט**. המודל לא אחראי ל-Duplicate Detection, לחישוב סטטוסים, לכתיבה ל-Database או להשלמת מידע שלא מופיע במסמך.
 
 ### 8.2 Model
 ברירת המחדל היא GPT-5.4 mini, דרך OpenAI Responses API. שם המודל נקבע בקונפיגורציה, וזמינותו נבדקת בתחילת הפיתוח.
@@ -314,9 +315,9 @@ otherwise            → processingStatus = Failed,  errorDetails = list of miss
 
 | ברשומה החדשה | השוואה |
 |---|---|
-| companyName + email | `companyNameNormalized` זהה **וגם** `emailNormalized` זהה |
-| companyName בלבד | `companyNameNormalized` זהה |
-| email בלבד | `emailNormalized` זהה |
+| companyName + email | `company_name_normalized` זהה **וגם** `email_normalized` זהה |
+| companyName בלבד | `company_name_normalized` זהה |
+| email בלבד | `email_normalized` זהה |
 | אף אחד | אין בדיקה |
 
 **בהעלאה:** כשנמצאה כפילות, לא יוצרים רשומה ולא מעדכנים את הקיימת (כולל `dateAdded` ופרטי המשלוח), ולא שולחים התראה.
@@ -326,9 +327,9 @@ otherwise            → processingStatus = Failed,  errorDetails = list of miss
 ### 9.4 Normalization
 
 ```text
-companyNameNormalized: trim, collapse whitespace, lowercase, Unicode NFKC
-emailNormalized:       trim, lowercase
-phoneDigits:           digits only (for search)
+company_name_normalized: trim, collapse whitespace, lowercase, Unicode NFKC
+email_normalized:        trim, lowercase
+phone_digits:            digits only (for search)
 ```
 
 אין fuzzy matching ואין AI-based duplicate matching.
@@ -360,39 +361,44 @@ phoneDigits:           digits only (for search)
 
 ---
 
-## 11. MongoDB Data Model
+## 11. Database Data Model (Supabase / PostgreSQL)
 
-### 11.1 Collection
+### 11.1 Tables
 
 ```text
 clients
 users
+schema_migrations   ← internal: which migrations were applied
 ```
 
-### 11.2 Client Document
+- ה-Database הוא PostgreSQL מנוהל ב-**Supabase**, עם Project נפרד לכל סביבה (סעיף 20).
+- רק ה-Backend מתחבר ל-Database, דרך Connection String של Postgres (`DATABASE_URL`) מעל SSL. לא משתמשים ב-Supabase client, ב-Data API (REST) או ב-Supabase Auth.
+- **Row Level Security (RLS)** מופעל על כל הטבלאות, **בלי policies**. כך ה-Data API הציבורי של Supabase (עם המפתח `anon`) לא יכול לקרוא או לכתוב שום דבר. ה-Backend מתחבר כבעלים של הטבלאות ולכן לא מושפע.
 
-```json
-{
-  "_id": "ObjectId",
-  "companyName": "string | null",
-  "companyNameNormalized": "string | null",
-  "address": "string | null",
-  "phone": "string | null",
-  "phoneDigits": "string | null",
-  "email": "string | null",
-  "emailNormalized": "string | null",
-  "originPort": "string | null",
-  "originCountry": "string | null",
-  "destinationPort": "string | null",
-  "incoterms": "string | null",
-  "shipmentType": "FCL | LCL | null",
-  "dateAdded": "Date (UTC)",
-  "processingStatus": "Success | Failed",
-  "errorDetails": "string | null"
-}
-```
+### 11.2 Client Table
 
-`dateAdded` נשמר ב-UTC, והתצוגה מומרת ל-Asia/Jerusalem ב-Frontend.
+| עמודה | סוג | הערות |
+|---|---|---|
+| `id` | `uuid` | Primary key, `gen_random_uuid()` |
+| `company_name` | `text` null | |
+| `company_name_normalized` | `text` null | סעיף 9.4 |
+| `address` | `text` null | |
+| `phone` | `text` null | |
+| `phone_digits` | `text` null | ספרות בלבד, לחיפוש |
+| `email` | `text` null | |
+| `email_normalized` | `text` null | סעיף 9.4 |
+| `origin_port` | `text` null | |
+| `origin_country` | `text` null | |
+| `destination_port` | `text` null | |
+| `incoterms` | `text` null | |
+| `shipment_type` | `text` null | `CHECK (shipment_type IN ('FCL','LCL'))` |
+| `date_added` | `timestamptz` not null | `DEFAULT now()` |
+| `processing_status` | `text` not null | `CHECK (processing_status IN ('Success','Failed'))` |
+| `error_details` | `text` null | |
+
+`date_added` נשמר ב-UTC (`timestamptz`), והתצוגה מומרת ל-Asia/Jerusalem ב-Frontend.
+
+ב-API השמות הם camelCase (`companyName`, `dateAdded`, ...), וה-`id` הוא UUID. ההמרה בין השמות נעשית ב-repository.
 
 ### 11.3 מידע שלא נשמר
 - קובץ ה-PDF.
@@ -402,40 +408,37 @@ users
 ### 11.4 Indexes
 
 ```text
-{ companyNameNormalized: 1, emailNormalized: 1 }
-{ companyNameNormalized: 1 }
-{ emailNormalized: 1 }
-{ dateAdded: -1 }
-{ processingStatus: 1, dateAdded: -1 }
+clients (company_name_normalized)
+clients (email_normalized)
+clients (date_added DESC, id DESC)
+clients (processing_status, date_added DESC, id DESC)
 ```
 
 ### 11.5 Duplicate Safety
-- Unique partial index על `companyNameNormalized + emailNormalized`, כששני השדות קיימים.
+- Unique partial index על `(company_name_normalized, email_normalized)`, כששני השדות `IS NOT NULL`. הוא מכסה גם את החיפוש לפי שני השדות יחד.
 - הכללים האחרים (שם בלבד, Email בלבד) נאכפים ב-service.
-- duplicate-key conflict ביצירה מטופל כ-duplicate, ובעריכה כ-409. לעולם לא כ-500.
+- unique violation (קוד Postgres `23505`) ביצירה מטופל כ-duplicate, ובעריכה כ-409. לעולם לא כ-500.
 
-### 11.6 User Document
+### 11.6 User Table
 
 טבלת המשתמשים מכילה **רק** אנשים שנרשמו דרך Google. אין בה סיסמאות.
 
-```json
-{
-  "_id": "ObjectId",
-  "googleId": "string",
-  "email": "string",
-  "name": "string | null",
-  "dateAdded": "Date (UTC)"
-}
-```
+| עמודה | סוג | הערות |
+|---|---|---|
+| `id` | `uuid` | Primary key, `gen_random_uuid()` |
+| `google_id` | `text` not null | `UNIQUE` |
+| `email` | `text` not null | |
+| `name` | `text` null | |
+| `date_added` | `timestamptz` not null | `DEFAULT now()` |
 
-- `googleId` הוא ה-`sub` היציב של Google, ומשמש לזיהוי המשתמש. `email` ו-`name` מתעדכנים מ-Google בכל כניסה.
-- Indexes: unique על `{ googleId: 1 }`.
-- רשומה נוצרת אוטומטית בכניסה הראשונה (upsert). אין מחיקה או עריכה מתוך הממשק.
+- `google_id` הוא ה-`sub` היציב של Google, ומשמש לזיהוי המשתמש. `email` ו-`name` מתעדכנים מ-Google בכל כניסה.
+- רשומה נוצרת אוטומטית בכניסה הראשונה, ב-`INSERT ... ON CONFLICT (google_id) DO UPDATE` (upsert אטומי). אין מחיקה או עריכה מתוך הממשק.
 
 ### 11.7 Database Migrations
-- Migration scripts בקוד, בתיקייה `backend/src/migrations`, ממוספרים ומנוהלים בגרסאות.
-- רצים בפקודה אחת על ה-Database שמוגדר ב-`MONGODB_URI`. הרצה חוזרת היא idempotent.
-- ה-Migrations יוצרים את ה-Collections (`clients`, `users`) ואת ה-Indexes.
+- קובצי SQL ממוספרים בתיקייה `backend/src/migrations` (למשל `001_initial.sql`), שמנוהלים בגרסאות ב-Git.
+- רצים בפקודה אחת על ה-Database שמוגדר ב-`DATABASE_URL`. כל migration רץ בתוך transaction ונרשם ב-`schema_migrations`, כך שהרצה חוזרת היא idempotent.
+- ה-Migrations יוצרים את הטבלאות (`clients`, `users`), את ה-Indexes ואת הפעלת ה-RLS.
+- לא משתמשים ב-Supabase CLI (הוא דורש Docker לחלק מהפעולות).
 - **סביבת Production:** Migrations רצות עליה רק באישור מפורש של המשתמש, לפי MILESTONES.md.
 
 ---
@@ -453,7 +456,7 @@ GET /api/v1/clients?search=&processingStatus=&sortOrder=&page=&limit=
 
 | פרמטר | ערכים | ברירת מחדל |
 |---|---|---|
-| `search` | טקסט חופשי. נבדק מול `companyName` ו-`email` (case-insensitive), ומול `phoneDigits` (ספרות בלבד) | — |
+| `search` | טקסט חופשי. נבדק מול `company_name` ו-`email` (`ILIKE`, case-insensitive), ומול `phone_digits` (ספרות בלבד; חיפוש שמתחיל ב-`0` מוצא גם את אותו מספר עם `972`, ADR-21) | — |
 | `processingStatus` | `Success` / `Failed` | הכל |
 | `sortOrder` | `desc` / `asc` (לפי `dateAdded`) | `desc` |
 | `page` | ≥ 1 | 1 |
@@ -532,9 +535,9 @@ health check בסיסי ל-App Runner. לא דורש מפתח API, ולא בוד
 ---
 
 ## 13. Search, Filters and Pagination
-- החיפוש, הסינון וה-Pagination מתבצעים ב-Backend מול MongoDB. ה-Frontend לא מוריד את כל הלקוחות.
-- Pagination מבוסס `skip/limit`, עם `hasNextPage` שמחושב על ידי שליפה של `limit + 1` רשומות. ה-UI מציג **Previous** ו-**Next** בלבד.
-- `search` מנוקה מתווים מיוחדים של regex לפני השימוש.
+- החיפוש, הסינון וה-Pagination מתבצעים ב-Backend מול ה-Database. ה-Frontend לא מוריד את כל הלקוחות.
+- Pagination מבוסס `OFFSET/LIMIT`, עם מיון יציב לפי `date_added` ואז `id`, עם `hasNextPage` שמחושב על ידי שליפה של `limit + 1` רשומות. ה-UI מציג **Previous** ו-**Next** בלבד.
+- `search` עובר escape לתווים המיוחדים של `LIKE` (`%`, `_`, `\`) ונשלח כפרמטר של ה-query, לעולם לא משורשר ל-SQL.
 
 ---
 
@@ -560,7 +563,7 @@ health check בסיסי ל-App Runner. לא דורש מפתח API, ולא בוד
 - אין צורך ב-Docker על מחשב המפתח.
 
 ### 15.3 Regions
-Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Atlas cluster ממוקם קרוב אליו ככל האפשר.
+Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Supabase Projects ממוקמים באותו Region או קרוב אליו ככל האפשר.
 
 ---
 
@@ -588,16 +591,16 @@ Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Atlas cluster מ�
 ה-Backend מוודא שהתקבל קובץ יחיד, שהוא PDF לפי MIME ו-magic bytes, ושגודלו לא עולה על `MAX_UPLOAD_BYTES` (4 MB). כשל parsing מטופל בצורה בטוחה.
 
 ### 16.5 Input Safety
-- MongoDB queries לא נבנים ישירות מ-raw request objects.
+- SQL queries הם parameterized בלבד (`$1`, `$2`, ...). ערכים מהבקשה לא משורשרים לטקסט ה-SQL.
 - `processingStatus` ו-`sortOrder` הם enums.
-- ObjectId validation לפני כל query.
+- UUID validation ל-`:id` לפני כל query.
 - אין להציג למשתמש raw exception messages.
 
 ### 16.6 AI Safety Boundary
 תוכן PDF הוא untrusted input. ה-Structured Outputs וה-server-side validation הם boundary חובה.
 
 ### 16.7 Logging
-אין לכתוב ללוגים: טקסט PDF מלא, API keys, credentials, `MONGODB_URI`, `AUTH_SECRET`, OAuth tokens, או PII מעבר למה שנדרש לצורך debugging.
+אין לכתוב ללוגים: טקסט PDF מלא, API keys, credentials, `DATABASE_URL`, `AUTH_SECRET`, OAuth tokens, או PII מעבר למה שנדרש לצורך debugging.
 
 ---
 
@@ -667,8 +670,8 @@ TECHNICAL_FAILURE   → unexpected error
 
 ### Backend
 ```text
-MONGODB_URI
-MONGODB_DATABASE
+DATABASE_URL
+DATABASE_DEV_PROJECT_REF
 OPENAI_API_KEY
 OPENAI_MODEL
 OPENAI_EXTRACTION_PROMPT_VERSION
@@ -699,7 +702,7 @@ AUTH_GOOGLE_SECRET
 
 | רכיב | Development | Production |
 |---|---|---|
-| MongoDB Atlas | Project/Cluster נפרד | Project/Cluster נפרד |
+| Supabase | Project נפרד (`ordan-dev`) | Project נפרד (`ordan-prod`) |
 | SES | identities מאומתים (Sandbox) | identities מאומתים (Sandbox) |
 | OpenAI | key נפרד | key נפרד |
 | Frontend / Backend | הרצה מקומית | Vercel / App Runner |
@@ -731,7 +734,7 @@ GitHub → GitHub Actions (docker build) → Amazon ECR → AWS App Runner
 
 | נתון | מחזור חיים |
 |---|---|
-| Client | נשמר ב-MongoDB עד מחיקה ידנית (hard delete, אין recycle bin). |
+| Client | נשמר ב-Database עד מחיקה ידנית (hard delete, אין recycle bin). |
 | PDF | זיכרון בלבד, בזמן הבקשה. מצורף להתראה כשצריך, ולא נשמר. |
 | Shipment details | נשמרים ברשומה בעת יצירתה. לא מתעדכנים מ-HBL נוסף של אותו לקוח, וניתנים לעריכה ידנית. |
 | Notifications | לא נשמר תיעוד שלהן במערכת. |
@@ -792,7 +795,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **החלטה:** Backend אחד ב-NestJS.
 **השלכות:** פיתוח ותחזוקה פשוטים. אפשר לפצל בעתיד לפי Modules.
 
-### ADR-2: MongoDB Atlas
+### ADR-2: MongoDB Atlas (הוחלפה ב-ADR-19)
 **הקשר:** רשומות עם הרבה שדות nullable, ושירות מנוהל.
 **החלטה:** Client records ב-MongoDB Atlas, עם Project נפרד לכל סביבה.
 **השלכות:** אין schema migrations במובן הקלאסי. Migrations מנהלות את ה-Collection ואת ה-Indexes.
@@ -874,5 +877,31 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 
 ### ADR-18: Sign in with Google במקום סיסמה משותפת
 **הקשר:** המשתמש החליט שהכניסה תהיה עם Google בלבד, שהמערכת לא תשמור שמות משתמש וסיסמאות, ושכל מי שנרשם עם Google (כולל מרצה הקורס) יוכל להיכנס. נדרשת טבלה של המשתמשים שנרשמו.
-**החלטה:** Auth.js ב-Next.js עם Google provider ו-session cookie מוצפן (JWT). בכניסה, ה-Next.js server קורא ל-Backend כדי לבצע upsert ל-Collection חדש `users`, כך שה-Frontend לא ניגש ל-MongoDB ישירות (סעיף 5.1). Basic Auth ו-`SITE_PASSWORD` מוסרים. נבנה ב-Milestone 2, יחד עם הקמת MongoDB; עד אז Basic Auth מ-Milestone 1 נשאר כהגנה זמנית.
+**החלטה:** Auth.js ב-Next.js עם Google provider ו-session cookie מוצפן (JWT). בכניסה, ה-Next.js server קורא ל-Backend כדי לבצע upsert לטבלה חדשה `users`, כך שה-Frontend לא ניגש ל-Database ישירות (סעיף 5.1). Basic Auth ו-`SITE_PASSWORD` מוסרים. נבנה ב-Milestone 2, יחד עם הקמת ה-Database; עד אז Basic Auth מ-Milestone 1 נשאר כהגנה זמנית.
 **השלכות:** נדרש OAuth Client ב-Google Cloud לכל סביבה. כל חשבון Google יכול להירשם ולצפות בנתונים. ה-OAuth consent screen צריך להיות במצב "In production" כדי שחשבונות שאינם Test users יוכלו להיכנס. מגבלה עתידית על מי נכנס תתבסס על טבלת `users`. ADR-7 מוחלף.
+
+### ADR-19: Supabase (PostgreSQL) במקום MongoDB Atlas
+**הקשר:** המשתמש החליט להשתמש ב-Supabase, מסד הנתונים ש-Lovable עובד איתו, במקום MongoDB Atlas. ה-Backend הוא NestJS נפרד, ולכן הוא צריך חיבור ישיר ל-Database.
+**החלטה:** שני Supabase Projects נפרדים, `ordan-dev` ו-`ordan-prod`, שנוצרים ישירות ב-supabase.com (לא דרך Lovable Cloud, שלא נותן Connection String ישיר). ה-Backend מתחבר עם `pg` דרך ה-Session pooler של Supabase, מעל SSL עם אימות התעודה (Supabase Root CA, קובץ ציבורי ב-Repository). Migrations הם קובצי SQL עם runner פנימי וטבלת `schema_migrations`. RLS מופעל בלי policies, כדי לחסום את ה-Data API הציבורי. לא משתמשים ב-Supabase Auth: הכניסה נשארת Auth.js עם Google (ADR-18).
+**השלכות:** מודל הנתונים עבר לטבלאות עם עמודות snake_case ו-`id` מסוג UUID (במקום ObjectId). אפשר בעתיד לחבר את אותו Supabase Project ל-Lovable אם יידרש, אבל זה לא חלק מה-MVP. ADR-2 מוחלף.
+
+### ADR-20: הגנה מהרצה בטעות על Production
+**הקשר:** ה-Seed וה-Integration tests כותבים ומוחקים נתונים. Connection String של Supabase לא מכיל את שם הסביבה, רק מזהה Project (project ref).
+**החלטה:** משתנה הסביבה `DATABASE_DEV_PROJECT_REF` מכיל את מזהה ה-Project של Development. ה-Seed וה-Integration tests רצים רק כש-`DATABASE_URL` מכיל את המזהה הזה, ונעצרים בכל מקרה אחר (fail closed). ה-Integration tests רצים ב-Postgres schema זמני נפרד בתוך Development, שנמחק בסוף, כי אין Database מקומי.
+**השלכות:** אין צורך לשמור פרטי Production על המחשב המקומי. מזהה Project אינו סוד.
+
+### ADR-21: חיפוש טלפון מתאים לפורמט ישראלי
+**הקשר:** ב-MILESTONES נדרש ש-`03-555` ימצא `+972 3 555...`, אבל ההשוואה לפי ספרות בלבד לא מוצאת אותו (`03555` מול `9723555`). המשתמש החליט להתאים את החיפוש לפורמט הישראלי.
+**החלטה:** חיפוש שנראה כמו מספר טלפון (רק ספרות, רווחים ו-`+-().`) נבדק מול `phone_digits`. אם הספרות מתחילות ב-`0`, נבדק גם אותו מספר עם `972` במקום ה-`0`. טקסט אחר (שם, מייל) לא נבדק מול הטלפון, כדי ש-`acme2024@x.com` לא ימצא כל טלפון שמכיל `2024`.
+**השלכות:** התנהגות שלא כתובה במפורש ב-PRD 4.2. מספרים זרים נמצאים לפי ספרות בלבד.
+
+### ADR-22: Auth.js v5, Route group וכניסה שתלויה ברישום
+**הקשר:** Next.js 16 עם App Router, ו-PRD 4.1 דורש שרק משתמשים רשומים ייכנסו.
+**החלטה:** `next-auth@5.0.0-beta.32` (גרסה קבועה), Google provider ו-JWT session. בכניסה, callback של Auth.js קורא ל-`POST /api/v1/users/google-sign-in`; אם הרישום נכשל, או שהמייל לא מאומת ב-Google, הכניסה נדחית והמשתמש רואה `Sign in failed. Please try again.` הבדיקה ב-`proxy.ts` נעשית דרך `auth()` של Auth.js, וההחלטה עצמה ב-`lib/access.ts`. המסכים עם הסרגל נמצאים ב-Route group `(app)`, ומסך Sign In מחוץ לו. כתובת החזרה אחרי הכניסה (`callbackUrl`) מוגבלת לנתיב יחסי באותו אתר.
+**השלכות:** Auth.js v5 עדיין מסומן beta; עדכון גרסה ייבדק בנפרד. Basic Auth ו-`SITE_PASSWORD` הוסרו, וכך גם ה-endpoints הזמניים `ping` (ADR-17).
+
+### ADR-23: כפתור Sign out בסרגל הניווט
+**הקשר:** ה-PRD לא מגדיר יציאה מהמערכת (TBD ב-MILESTONES). המשתמש החליט שיש צורך בכפתור.
+**החלטה:** כפתור **Sign out** בתחתית סרגל הניווט, שמוחק את ה-session ומחזיר ל-Sign In.
+**השלכות:** תוספת לממשק שלא מופיעה ב-PRD/DESIGN.
+

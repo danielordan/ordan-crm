@@ -11,7 +11,7 @@
    - את התוצר שהושלם: מה עובד, איך מריצים אותו ואיך בודקים אותו.
    - את תוצאות הבדיקה מול **כל** סעיף ב-Definition of Done. לכל סעיף יש לציין עבר או נכשל, ואיך זה נבדק.
 3. **אין להתחיל** את ה-Milestone הבא ללא אישור מפורש של המשתמש.
-4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (MongoDB Atlas, Google Cloud, AWS, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
+4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (Supabase, Google Cloud, AWS, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
 5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובץ `.env` מקומי, ולצדו קובץ `.env.example` ללא ערכים.
 6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**.
 7. **סביבת Production לא בשימוש עד Milestone 5.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–4. בהם ה-Push לא ממתין ל-Production. ב-Milestone 5 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
@@ -79,25 +79,23 @@
 
 ---
 
-## Milestone 2 — Sign in with Google & Clients List
+## Milestone 2 — Sign in with Google & Clients List ✅
 
 ### שם ומטרה
 המשתמש נכנס למערכת עם חשבון Google, ונרשם אוטומטית בכניסה הראשונה. אחר כך הוא צופה ברשימת הלקוחות במסך הבית, ומחפש, מסנן, ממיין ומדפדף בה. זהו ה-Milestone הראשון שמשתמש במסד הנתונים, ולכן הוא כולל גם את הקמת סביבות ה-Database.
 
 ### מה יש לממש
-- **הקמת סביבות MongoDB Atlas.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  1. יצירת חשבון ב-MongoDB Atlas.
-  2. יצירת **שני Projects נפרדים**, Development ו-Production, עם Cluster בכל אחד.
-  3. יצירת Database User לכל סביבה.
-  4. הגדרת Network Access.
-  5. העתקת ה-Connection String של **Development** לקובץ `.env` המקומי.
-  6. שמירת פרטי Production בצד, לשימוש ב-Milestone 5. **אין להתחבר ל-Production בשלב זה.**
+- **הקמת סביבות Supabase** (ARCHITECTURE ADR-19). המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
+  1. יצירת חשבון ב-Supabase.
+  2. יצירת **שני Projects נפרדים**, `ordan-dev` ו-`ordan-prod`, כל אחד עם Database password חזק משלו.
+  3. העתקת ה-Connection String של **Development** (Session pooler) ומזהה ה-Project שלו לקובץ `.env` המקומי (`DATABASE_URL`, `DATABASE_DEV_PROJECT_REF`).
+  4. שמירת פרטי Production בצד, לשימוש ב-Milestone 5. **אין להתחבר ל-Production בשלב זה.**
 - **הקמת Google OAuth לסביבת Development.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
   1. יצירת Project ב-Google Cloud.
   2. הגדרת OAuth consent screen, והעברתו למצב "In production" כדי שכל חשבון Google יוכל להיכנס.
   3. יצירת OAuth Client מסוג Web application, עם redirect ל-`http://localhost:3000/api/auth/callback/google`.
   4. העתקת ה-Client ID וה-Client Secret ל-`frontend/.env` (`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`), ויצירת `AUTH_SECRET`.
-- **מנגנון Database Migrations**, לפי ARCHITECTURE סעיף 11.7. ה-Migration הראשון יוצר את ה-Collections `clients` ו-`users` ואת כל ה-Indexes מסעיפים 11.4, 11.5 ו-11.6.
+- **מנגנון Database Migrations**, לפי ARCHITECTURE סעיף 11.7. ה-Migration הראשון יוצר את הטבלאות `clients` ו-`users`, את כל ה-Indexes מסעיפים 11.4, 11.5 ו-11.6, ומפעיל RLS.
 - **Sign in with Google**, לפי PRD 4.1, ARCHITECTURE סעיפים 5.1, 11.6, 12.3 ו-16.1, ו-DESIGN סעיף 1.7:
   - Backend: Users Module ו-`POST /api/v1/users/google-sign-in` (upsert לפי `googleId`).
   - Frontend: Auth.js עם Google provider, מסך **Sign In**, ו-Proxy שבודק session: דפים מפנים ל-`/sign-in`, ו-`/api/*` מחזירים 401.
@@ -118,13 +116,13 @@
   - תאריכים בפורמט `Jul 20, 2026`, לפי Asia/Jerusalem.
   - **Previous** ו-**Next**.
   - מצב ריק ומצב טעינה.
-- **Seed script לסביבת Development בלבד.** הסקריפט יוצר רשומות בדיקה שמכסות את שני הסטטוסים ואת השדות החסרים. הוא נחסם מלרוץ כש-`MONGODB_URI` מצביע על Cluster של Production.
+- **Seed script לסביבת Development בלבד.** הסקריפט יוצר רשומות בדיקה שמכסות את שני הסטטוסים ואת השדות החסרים. הוא נחסם מלרוץ כש-`DATABASE_URL` לא מצביע על ה-Project של Development (ARCHITECTURE ADR-20).
 
 ### תוצר מצופה
-המשתמש נכנס עם Google ונרשם בטבלת `users`. מסך Clients עובד מקצה לקצה מול MongoDB Development: רשומות הבדיקה מוצגות, וחיפוש, סינון, מיון ו-Pagination פועלים.
+המשתמש נכנס עם Google ונרשם בטבלת `users`. מסך Clients עובד מקצה לקצה מול ה-Database של Development: רשומות הבדיקה מוצגות, וחיפוש, סינון, מיון ו-Pagination פועלים.
 
 ### Definition of Done
-- [ ] שני Projects ב-Atlas (Development ו-Production) קיימים, והמשתמש אישר את הקמתם. ה-Backend המקומי מחובר ל-Development בלבד.
+- [ ] שני Projects ב-Supabase (Development ו-Production) קיימים, והמשתמש אישר את הקמתם. ה-Backend המקומי מחובר ל-Development בלבד.
 - [ ] ה-Migrations רצו בהצלחה על **Development**, וכל ה-Indexes קיימים בפועל.
 - [ ] הרצה חוזרת של ה-Migrations לא משנה ולא שוברת דבר.
 - [ ] Seed script רץ על Development.
@@ -159,7 +157,7 @@
     - חישוב מחדש של הסטטוס.
     - החזרת 409 על כפילות.
   - `DELETE /api/v1/clients/:id`.
-  - ObjectId validation, ו-404 ללקוח שלא קיים.
+  - UUID validation, ו-404 ללקוח שלא קיים.
 - **Frontend:**
   - מסך **Client Details**, לפי DESIGN סעיף 1.3: Cards לפרטי הלקוח, לפרטי המשלוח ולמצב הרשומה; Date Added עם שעה; Error Details רק כשהסטטוס הוא `Failed`.
   - מצב עריכה, עם Save ו-Cancel ו-Dropdown ל-Shipment Type. בכפילות מוצגת הודעה, והטופס נשאר במצב עריכה.
@@ -247,7 +245,7 @@
 
 ### מה יש לממש
 - **הקמת שירותי Production.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  - **MongoDB Atlas Production**, שהוקם ב-Milestone 2: הרצת **כל ה-Database Migrations** על Production, **באישור מפורש של המשתמש**.
+  - **Supabase Production**, שהוקם ב-Milestone 2: הרצת **כל ה-Database Migrations** על Production, **באישור מפורש של המשתמש**.
   - **SES:** אימות ה-identities לשימוש ב-Production. הם נשארים ב-Sandbox.
   - **OpenAI key** ל-Production.
   - **GitHub Actions + Amazon ECR:**

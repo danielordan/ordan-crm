@@ -11,8 +11,14 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(4194304),
   OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(60000),
-  MONGODB_URI: optionalString,
-  MONGODB_DATABASE: optionalString,
+  DATABASE_URL: z.string().trim().min(1, 'is required'),
+  // Supabase project ID of the Development database (ARCHITECTURE ADR-20); required by seed and tests
+  DATABASE_DEV_PROJECT_REF: optionalString,
+  // Postgres schema for all tables; tests use a temporary one
+  DATABASE_SCHEMA: z
+    .string()
+    .regex(/^[a-z_][a-z0-9_]{0,62}$/, 'must be a lowercase Postgres identifier')
+    .default('public'),
   OPENAI_API_KEY: optionalString,
   OPENAI_MODEL: optionalString,
   OPENAI_EXTRACTION_PROMPT_VERSION: optionalString,
@@ -24,7 +30,7 @@ export const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 export function validateEnv(raw: Record<string, unknown>): Env {
-  // Treat empty values from .env (e.g. "MONGODB_URI=") as not set
+  // Treat empty values from .env (e.g. "OPENAI_API_KEY=") as not set
   const cleaned = Object.fromEntries(Object.entries(raw).filter(([, value]) => value !== ''));
   const result = envSchema.safeParse(cleaned);
   if (!result.success) {

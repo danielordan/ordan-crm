@@ -58,4 +58,5 @@
 ## פקודות הרצה
 > Claude ממלא זאת ברגע שהאפליקציה יכולה לרוץ (בדרך כלל בסיום Milestone 1), ומעדכן אם משהו משתנה.
 - **הרצה (dev):** `npm run dev` (מהשורש; Frontend ב-http://localhost:3000, Backend ב-http://localhost:4000)
-- **בדיקות (test):** `npm test` (וגם `npm run lint`, `npm run format:check`)
+- **מסד נתונים:** `npm run db:migrate` (יצירת/עדכון טבלאות), `npm run db:seed` (לקוחות לדוגמה, Development בלבד)
+- **בדיקות (test):** `npm test` (וגם `npm run lint`, `npm run format:check`). בדיקות ה-e2e של ה-Backend רצות מול Supabase Development, ב-schema זמני שנמחק בסוף

@@ -1,8 +1,9 @@
 'use client';
 
-import { Upload, Users, type LucideIcon } from 'lucide-react';
+import { LogOut, Upload, Users, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { signOutToSignIn } from '@/lib/auth-actions';
 import { cn } from '@/lib/cn';
 import { SidebarDecoration } from './SidebarDecoration';
 
@@ -11,6 +12,10 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
 }
+
+const itemClasses =
+  'flex w-full items-center gap-3 rounded-control border-l-2 px-4 py-3 text-body font-medium transition-colors focus-visible:outline-2 focus-visible:outline-primary';
+const idleClasses = 'border-transparent text-white/75 hover:bg-navy-light/60 hover:text-white';
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/clients', label: 'Clients', icon: Users },
@@ -42,11 +47,8 @@ export function Sidebar() {
               href={href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-control border-l-2 px-4 py-3 text-body font-medium transition-colors',
-                'focus-visible:outline-2 focus-visible:outline-primary',
-                active
-                  ? 'border-primary bg-navy-light text-white'
-                  : 'border-transparent text-white/75 hover:bg-navy-light/60 hover:text-white',
+                itemClasses,
+                active ? 'border-primary bg-navy-light text-white' : idleClasses,
               )}
             >
               <Icon aria-hidden="true" className={cn('size-5', active && 'text-primary')} />
@@ -55,6 +57,13 @@ export function Sidebar() {
           );
         })}
       </nav>
+      {/* Above the decorative shapes at the bottom of the sidebar */}
+      <form action={signOutToSignIn} className="relative z-10 mt-auto px-3 pb-44">
+        <button type="submit" className={cn(itemClasses, idleClasses, 'cursor-pointer')}>
+          <LogOut aria-hidden="true" className="size-5" />
+          Sign out
+        </button>
+      </form>
       <SidebarDecoration />
     </aside>
   );

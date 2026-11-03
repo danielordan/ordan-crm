@@ -12,7 +12,9 @@
     "lint": "eslint .",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest --config jest.config.json",
-    "test:e2e": "jest --config test/jest-e2e.json"
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand",
+    "db:migrate": "tsx src/migrations/cli.ts",
+    "db:seed": "tsx src/seed/seed.cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.29",
@@ -21,6 +23,7 @@
     "@nestjs/platform-express": "^11.1.29",
     "@nestjs/throttler": "^6.7.1",
     "nestjs-pino": "^5.3.1",
+    "pg": "^8.23.1",
     "pino": "^10.0.0",
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
@@ -34,6 +37,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.3",
     "eslint": "^9.39.0",
     "globals": "^17.14.0",
@@ -41,6 +45,7 @@
     "pino-pretty": "^13.2.0",
     "supertest": "^7.3.1",
     "ts-jest": "^29.4.15",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1"
   }

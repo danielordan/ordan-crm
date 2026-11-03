@@ -1,19 +1,19 @@
-import { NextResponse, type NextRequest } from 'next/server';
-import { AUTH_REALM, checkBasicAuth } from '@/lib/basic-auth';
+import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { decideAccess } from '@/lib/access';
 
-// Next.js 16 "Proxy" (formerly Middleware). No matcher: every request is protected.
-export function proxy(request: NextRequest): NextResponse {
-  const result = checkBasicAuth(request.headers.get('authorization'), process.env.SITE_PASSWORD);
+// Next.js 16 "Proxy" (formerly Middleware). No matcher: every request is checked for a
+// Google sign-in session. Without one, pages redirect to /sign-in and /api/* returns 401.
+export const proxy = auth((request) => {
+  const { pathname, search } = request.nextUrl;
+  const decision = decideAccess(pathname, search, Boolean(request.auth));
 
-  if (result === 'ok') return NextResponse.next();
-
-  if (result === 'not_configured') {
-    // Fail closed when the password is missing
-    return new NextResponse('Site password is not configured.', { status: 500 });
+  if (decision.type === 'allow') return NextResponse.next();
+  if (decision.type === 'unauthorized') {
+    return NextResponse.json(
+      { error: 'UNAUTHORIZED', message: 'Authentication required.' },
+      { status: 401 },
+    );
   }
-
-  return new NextResponse('Authentication required.', {
-    status: 401,
-    headers: { 'WWW-Authenticate': `Basic realm="${AUTH_REALM}", charset="UTF-8"` },
-  });
-}
+  return NextResponse.redirect(new URL(decision.location, request.nextUrl.origin));
+});

@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 
 const pathname = vi.hoisted(() => ({ value: '/clients' }));
 vi.mock('next/navigation', () => ({ usePathname: () => pathname.value }));
+vi.mock('@/lib/auth-actions', () => ({ signOutToSignIn: vi.fn() }));
 
 describe('Sidebar', () => {
   it('shows the system name and both navigation items', () => {
@@ -24,5 +25,10 @@ describe('Sidebar', () => {
       if (link.textContent === activeLabel) expect(link).toHaveAttribute('aria-current', 'page');
       else expect(link).not.toHaveAttribute('aria-current');
     }
+  });
+
+  it('shows a Sign out button', () => {
+    render(<Sidebar />);
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 });
