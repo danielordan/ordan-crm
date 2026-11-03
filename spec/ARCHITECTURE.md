@@ -40,7 +40,8 @@
 | Backend Hosting | AWS App Runner |
 | Backend Packaging | Docker, נבנה בענן (GitHub Actions → Amazon ECR) |
 | API Style | REST + JSON |
-| Access protection | HTTP Basic Auth עם סיסמה משותפת אחת (Next.js Middleware) + מפתח API בין Next.js ל-Backend |
+| Authentication | Sign in with Google (OAuth 2.0 / OpenID Connect) דרך Auth.js ב-Next.js. אין סיסמאות במערכת |
+| Access protection | Session cookie של Auth.js, נבדק ב-Next.js Proxy + מפתח API בין Next.js ל-Backend |
 
 ---
 
@@ -50,13 +51,14 @@
 ┌─────────────────────────────────────┐
 │           Desktop Browser           │
 └─────────────────┬───────────────────┘
-                  │ HTTPS + Basic Auth (shared password)
+                  │ HTTPS + Google sign-in session cookie
                   ▼
 ┌─────────────────────────────────────┐
 │     Next.js on Vercel               │
-│  - Pages: Clients, Upload PDF,      │
-│    Client Details                   │
-│  - Middleware: Basic Auth           │
+│  - Pages: Sign In, Clients,         │
+│    Upload PDF, Client Details       │
+│  - Proxy: session check             │
+│  - Auth.js: Sign in with Google ────┼──► Google OAuth
 │  - Route Handlers: /api/* proxy     │
 └─────────────────┬───────────────────┘
                   │ HTTPS + X-API-Key (server-to-server)
@@ -64,6 +66,7 @@
 ┌─────────────────────────────────────┐
 │     NestJS Backend / App Runner     │
 │  Clients Module                     │
+│  Users Module                       │
 │  Documents Module                   │
 │  Processing Module                  │
 │  Extraction Module                  │
@@ -85,7 +88,8 @@
 - העלאת PDF והצגת Processing state והודעת התוצאה.
 - טבלת הלקוחות: Search, Filter, Sort, Pagination ו-Refresh.
 - הצגת פרטי לקוח, עריכה ומחיקה.
-- **הגנת גישה:** Middleware שמחייב Basic Auth בכל בקשה. שם המשתמש לא נבדק, והסיסמה נבדקת מול `SITE_PASSWORD`.
+- **כניסה עם Google:** Auth.js עם Google provider. בכניסה, ה-Next.js server קורא ל-Backend (`POST /api/v1/users/google-sign-in`) כדי לרשום את המשתמש בטבלת `users`, אם הוא חדש.
+- **הגנת גישה:** Proxy (לשעבר Middleware) שבודק בכל בקשה שיש session תקין של Auth.js. בלי session, דפים מפנים ל-`/sign-in`, ו-`/api/*` מחזירים 401.
 - **Proxy:** Route Handlers תחת `/api/*` שמעבירים את הבקשות ל-Backend בצד השרת ומוסיפים את הכותרת `X-API-Key`.
 
 ה-Frontend **לא**:
@@ -98,6 +102,8 @@
 
 ```text
 /                → redirect to /clients
+/sign-in         → Sign In (the only page that does not require a session)
+/api/auth/*      → Auth.js routes (Google OAuth callback)
 /clients         → Clients (home)
 /clients/[id]    → Client Details
 /upload          → Upload PDF
@@ -134,6 +140,11 @@
 
 ```text
 src/
+├── users/
+│   ├── users.controller.ts           ← POST /api/v1/users/google-sign-in
+│   ├── users.service.ts
+│   ├── users.repository.ts
+│   └── schemas/
 ├── clients/
 │   ├── clients.controller.ts
 │   ├── clients.service.ts
@@ -355,6 +366,7 @@ phoneDigits:           digits only (for search)
 
 ```text
 clients
+users
 ```
 
 ### 11.2 Client Document
@@ -402,10 +414,28 @@ clients
 - הכללים האחרים (שם בלבד, Email בלבד) נאכפים ב-service.
 - duplicate-key conflict ביצירה מטופל כ-duplicate, ובעריכה כ-409. לעולם לא כ-500.
 
-### 11.6 Database Migrations
+### 11.6 User Document
+
+טבלת המשתמשים מכילה **רק** אנשים שנרשמו דרך Google. אין בה סיסמאות.
+
+```json
+{
+  "_id": "ObjectId",
+  "googleId": "string",
+  "email": "string",
+  "name": "string | null",
+  "dateAdded": "Date (UTC)"
+}
+```
+
+- `googleId` הוא ה-`sub` היציב של Google, ומשמש לזיהוי המשתמש. `email` ו-`name` מתעדכנים מ-Google בכל כניסה.
+- Indexes: unique על `{ googleId: 1 }`.
+- רשומה נוצרת אוטומטית בכניסה הראשונה (upsert). אין מחיקה או עריכה מתוך הממשק.
+
+### 11.7 Database Migrations
 - Migration scripts בקוד, בתיקייה `backend/src/migrations`, ממוספרים ומנוהלים בגרסאות.
 - רצים בפקודה אחת על ה-Database שמוגדר ב-`MONGODB_URI`. הרצה חוזרת היא idempotent.
-- ה-Migrations יוצרים את ה-Collection ואת ה-Indexes.
+- ה-Migrations יוצרים את ה-Collections (`clients`, `users`) ואת ה-Indexes.
 - **סביבת Production:** Migrations רצות עליה רק באישור מפורש של המשתמש, לפי MILESTONES.md.
 
 ---
@@ -478,7 +508,20 @@ Responses:
 - `413`: הקובץ גדול מ-4 MB.
 - `500`: תקלה טכנית.
 
-### 12.3 Health
+### 12.3 Users
+
+```http
+POST /api/v1/users/google-sign-in
+Content-Type: application/json
+{ "googleId": "...", "email": "...", "name": "..." }
+```
+
+- נקרא **רק** משרת ה-Next.js (Auth.js sign-in callback), עם `X-API-Key`. אין לו Proxy route לדפדפן.
+- Upsert לפי `googleId`: יוצר משתמש חדש עם `dateAdded`, או מעדכן `email` ו-`name` למשתמש קיים.
+- Response: `{ "id": "...", "email": "...", "name": "..." }`.
+- `400` כש-`googleId` או `email` חסרים.
+
+### 12.4 Health
 
 ```http
 GET /health
@@ -507,7 +550,7 @@ health check בסיסי ל-App Runner. לא דורש מפתח API, ולא בוד
 
 ### 15.1 Frontend — Vercel
 - Next.js deployed ל-Vercel.
-- משתני סביבה בצד השרת בלבד: `BACKEND_API_URL`, `BACKEND_API_KEY`, `SITE_PASSWORD`.
+- משתני סביבה בצד השרת בלבד: `BACKEND_API_URL`, `BACKEND_API_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`.
 - ⚠️ תוכנית Hobby של Vercel מיועדת לשימוש לא מסחרי. לשימוש של חברה נדרשת כנראה תוכנית Pro.
 
 ### 15.2 Backend — AWS App Runner
@@ -524,11 +567,14 @@ Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Atlas cluster מ�
 ## 16. Security
 
 ### 16.1 Access
-- **Basic Auth** ב-Next.js Middleware, עם סיסמה משותפת אחת (`SITE_PASSWORD`), על כל הדפים וה-Routes.
+- **Sign in with Google** דרך Auth.js. המערכת לא שומרת סיסמאות. כל חשבון Google יכול להירשם; רשומת המשתמש נשמרת ב-`users` בכניסה הראשונה.
+- **Session:** cookie מוצפן של Auth.js (JWT), `HttpOnly`, `Secure` ב-Production, חתום ב-`AUTH_SECRET`. לא נשמרים sessions ב-Database.
+- **Proxy** ב-Next.js בודק session בכל הדפים וה-Routes, מלבד `/sign-in`, `/api/auth/*` וקבצים סטטיים.
 - **API Key Guard** ב-NestJS על כל `/api/v1/*`. המפתח (`BACKEND_API_KEY`) ידוע רק לשרת ה-Next.js ול-Backend.
 - הדפדפן לא פונה ל-Backend ישירות, ולכן אין צורך ב-CORS. ה-CORS ב-Backend כבוי.
 - Rate limiting ב-Backend.
-- אין מסך Login, משתמשים או Roles. Amazon Cognito יישקל בעתיד, אם יידרשו כמה משתמשים.
+- אין Roles או Permissions: לכל המשתמשים הרשומים אותן יכולות.
+- ⚠️ מאחר שכל חשבון Google יכול להירשם, כל מי שיש לו חשבון Google יכול לצפות בנתוני הלקוחות. זו החלטת מוצר (PRD 4.1).
 
 ### 16.2 Transport
 כל התקשורת ב-Production מתבצעת ב-HTTPS/TLS.
@@ -551,7 +597,7 @@ Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Atlas cluster מ�
 תוכן PDF הוא untrusted input. ה-Structured Outputs וה-server-side validation הם boundary חובה.
 
 ### 16.7 Logging
-אין לכתוב ללוגים: טקסט PDF מלא, API keys, credentials, `MONGODB_URI`, את הסיסמה, או PII מעבר למה שנדרש לצורך debugging.
+אין לכתוב ללוגים: טקסט PDF מלא, API keys, credentials, `MONGODB_URI`, `AUTH_SECRET`, OAuth tokens, או PII מעבר למה שנדרש לצורך debugging.
 
 ---
 
@@ -640,7 +686,9 @@ LOG_LEVEL
 ```text
 BACKEND_API_URL
 BACKEND_API_KEY
-SITE_PASSWORD
+AUTH_SECRET
+AUTH_GOOGLE_ID
+AUTH_GOOGLE_SECRET
 ```
 
 ---
@@ -655,7 +703,8 @@ SITE_PASSWORD
 | SES | identities מאומתים (Sandbox) | identities מאומתים (Sandbox) |
 | OpenAI | key נפרד | key נפרד |
 | Frontend / Backend | הרצה מקומית | Vercel / App Runner |
-| `BACKEND_API_KEY`, `SITE_PASSWORD` | ערכים מקומיים | ערכים נפרדים וחזקים |
+| Google OAuth Client | Client נפרד, redirect ל-`localhost` | Client נפרד, redirect לכתובת Production |
+| `BACKEND_API_KEY`, `AUTH_SECRET` | ערכים מקומיים | ערכים נפרדים וחזקים |
 
 הקובץ `.env` המקומי מכיל את פרטי ה-Development בלבד. אין להשתמש בנתוני Production לצורך פיתוח.
 
@@ -721,6 +770,8 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 - Edit that creates a duplicate → 409, nothing saved.
 - Delete client.
 - Requests without a valid `X-API-Key` → 401.
+- First Google sign-in → user created in `users`; repeated sign-in → same user, no duplicate.
+- Pages without a session → redirect to `/sign-in`; `/api/*` without a session → 401.
 
 ---
 
@@ -729,7 +780,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 - **מייל שיווקי ללקוח:** אחרי בדיקה משפטית. כולל Email Status, תבנית, מנגנון הסרה ו-SES Production access.
 - **Incoming Email Processing:** mailbox → attachment extraction → אותו `ProcessingService`.
 - **OCR:** `DocumentTextExtractor` נוסף.
-- **Authentication:** Amazon Cognito עם NestJS Guards.
+- **Roles / Permissions:** אם יידרש להגביל מי נכנס או מה כל משתמש רשאי לעשות, על בסיס טבלת `users`.
 - **Asynchronous processing:** אם זמני העיבוד יתקרבו למגבלות, להעביר ל-job queue בלי לשנות את ה-domain services.
 
 ---
@@ -766,7 +817,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **החלטה:** REST/JSON תחת `/api/v1`.
 **השלכות:** פשוט לפיתוח ול-debugging.
 
-### ADR-7: Basic Auth + BFF במקום Login
+### ADR-7: Basic Auth + BFF במקום Login (הוחלפה ב-ADR-18)
 **הקשר:** ה-PRD אוסר על Login, אבל המערכת מכילה מידע עסקי ושולחת מיילים.
 **החלטה:** סיסמה משותפת ב-Basic Auth ב-Next.js. ה-Next.js משמש כ-proxy ל-Backend עם מפתח API.
 **השלכות:** ה-Backend לא נגיש ללא המפתח. מגבלת ההעלאה היא 4 MB, בגלל מגבלת גוף הבקשה של Vercel.
@@ -790,3 +841,38 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **הקשר:** המשתמש אינו מתכנת, ואין להתקין Docker מקומית.
 **החלטה:** GitHub Actions בונה את ה-image ודוחף ל-ECR.
 **השלכות:** הפיתוח המקומי רץ ב-Node.js בלבד. ה-Dockerfile נבדק לראשונה בזמן הפריסה.
+
+### ADR-12: npm workspaces עם פקודת הרצה אחת
+**הקשר:** שתי אפליקציות (Frontend ו-Backend) ב-Repository אחד, ומשתמש שאינו מתכנת צריך להתקין ולהריץ בקלות.
+**החלטה:** npm workspaces בשורש (`frontend`, `backend`), עם `npm install` אחד ו-`npm run dev` שמריץ את שתיהן במקביל באמצעות `concurrently`. Prettier משותף בשורש.
+**השלכות:** קובץ `package-lock.json` אחד. כל אפליקציה שומרת `package.json` משלה, כך שהבנייה בענן (Vercel, Docker) יכולה לעבוד על כל אחת בנפרד.
+
+### ADR-13: NestJS 11 ו-TypeScript 6
+**הקשר:** NestJS 12 יצא לאחרונה, והוא ESM-only. TypeScript 7 אינו נתמך עדיין ב-ts-jest.
+**החלטה:** NestJS 11 (CommonJS, עדיין מתוחזק) ו-TypeScript 6 בשתי האפליקציות.
+**השלכות:** סביבת בדיקות יציבה עם Jest. מעבר עתידי ל-NestJS 12 / TypeScript 7 יתבצע כשהכלים יתמכו בהם.
+
+### ADR-14: Next.js 16 — Proxy במקום Middleware
+**הקשר:** ב-Next.js 16 הקובץ `middleware.ts` שונה ל-`proxy.ts`, באותה יכולת. ברירת המחדל שלו היא Node.js runtime.
+**החלטה:** Basic Auth ממומש ב-`frontend/src/proxy.ts`, בלי `matcher`, כך שהוא חל על כל הבקשות. הבדיקה עצמה ב-`lib/basic-auth.ts`.
+**השלכות:** בכל מקום שהמסמכים אומרים "Middleware", הכוונה ל-`proxy.ts`. ה-Proxy מבצע buffering לגוף הבקשה עד 10 MB כברירת מחדל, יותר ממגבלת ה-4 MB של ההעלאה.
+
+### ADR-15: Tailwind CSS v4 ל-Design tokens, ו-lucide-react לאייקונים
+**הקשר:** DESIGN.md סעיף 2 מגדיר צבעים, Typography, Radius, Shadow ו-Spacing.
+**החלטה:** ה-tokens מוגדרים ב-`@theme` בקובץ `frontend/src/app/globals.css`, והרכיבים משתמשים בהם דרך utility classes. גוונים בהירים וכהים של צבעי הסטטוס נגזרים מהפלטה לרקעים ולטקסט. אייקונים מ-`lucide-react`.
+**השלכות:** מקור אחד לשפה העיצובית. שינוי צבע נעשה במקום אחד.
+
+### ADR-16: Logging, Config ו-Rate limiting ב-Backend
+**הקשר:** ARCHITECTURE סעיפים 16, 18 ו-19.
+**החלטה:** `nestjs-pino` ל-JSON logs עם Request ID (`X-Request-Id`, נוצר אם חסר) ו-redaction של `X-API-Key`, `Authorization` ו-`Cookie`. ולידציה של משתני הסביבה עם `zod`: משתנים של Milestones עתידיים אופציונליים עד שהם נדרשים. Rate limiting עם `@nestjs/throttler`: 300 בקשות לדקה, לפני בדיקת המפתח, ו-`/health` פטור.
+**השלכות:** Backend לא עולה כשההגדרות לא תקינות, וההודעה מציינת שמות משתנים בלבד. מאחר שכל הבקשות מגיעות משרת ה-Next.js, ה-Rate limit הוא בפועל מגבלה כוללת.
+
+### ADR-17: Endpoint בדיקה זמני ודף תצוגת רכיבים
+**הקשר:** ב-Milestone 1 אין עדיין endpoints עסקיים, וצריך לבדוק את ה-Proxy ואת ה-Design System.
+**החלטה:** `GET /api/v1/ping` ב-Backend ו-`GET /api/ping` ב-Frontend לבדיקת ה-Proxy, ויוסרו ב-Milestone 2. דף `/dev/components` מציג את הרכיבים ומחזיר 404 ב-Production.
+**השלכות:** אין השפעה על המוצר.
+
+### ADR-18: Sign in with Google במקום סיסמה משותפת
+**הקשר:** המשתמש החליט שהכניסה תהיה עם Google בלבד, שהמערכת לא תשמור שמות משתמש וסיסמאות, ושכל מי שנרשם עם Google (כולל מרצה הקורס) יוכל להיכנס. נדרשת טבלה של המשתמשים שנרשמו.
+**החלטה:** Auth.js ב-Next.js עם Google provider ו-session cookie מוצפן (JWT). בכניסה, ה-Next.js server קורא ל-Backend כדי לבצע upsert ל-Collection חדש `users`, כך שה-Frontend לא ניגש ל-MongoDB ישירות (סעיף 5.1). Basic Auth ו-`SITE_PASSWORD` מוסרים. נבנה ב-Milestone 2, יחד עם הקמת MongoDB; עד אז Basic Auth מ-Milestone 1 נשאר כהגנה זמנית.
+**השלכות:** נדרש OAuth Client ב-Google Cloud לכל סביבה. כל חשבון Google יכול להירשם ולצפות בנתונים. ה-OAuth consent screen צריך להיות במצב "In production" כדי שחשבונות שאינם Test users יוכלו להיכנס. מגבלה עתידית על מי נכנס תתבסס על טבלת `users`. ADR-7 מוחלף.

@@ -11,7 +11,7 @@
    - את התוצר שהושלם: מה עובד, איך מריצים אותו ואיך בודקים אותו.
    - את תוצאות הבדיקה מול **כל** סעיף ב-Definition of Done. לכל סעיף יש לציין עבר או נכשל, ואיך זה נבדק.
 3. **אין להתחיל** את ה-Milestone הבא ללא אישור מפורש של המשתמש.
-4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (MongoDB Atlas, AWS, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
+4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (MongoDB Atlas, Google Cloud, AWS, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
 5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובץ `.env` מקומי, ולצדו קובץ `.env.example` ללא ערכים.
 6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**.
 7. **סביבת Production לא בשימוש עד Milestone 5.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–4. בהם ה-Push לא ממתין ל-Production. ב-Milestone 5 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
@@ -26,14 +26,14 @@
 | # | Milestone | סוג | תלוי ב- |
 |---|---|---|---|
 | 1 | Project Foundation & App Shell | טכני (הקמה) | — |
-| 2 | Clients List | Vertical Slice | 1 |
+| 2 | Sign in with Google & Clients List | Vertical Slice | 1 |
 | 3 | Client Details, Edit & Delete | Vertical Slice | 2 |
 | 4 | PDF Upload, Extraction & Manual Review Alerts | Vertical Slice | 3 |
 | 5 | Production Deployment | טכני (פריסה) | 4 |
 
 ---
 
-## Milestone 1 — Project Foundation & App Shell
+## Milestone 1 — Project Foundation & App Shell ✅
 
 ### שם ומטרה
 הקמת שלד הפרויקט: Frontend ו-Backend רצים מקומית ומחוברים זה לזה דרך ה-Proxy המאובטח, עם מעטפת ממשק שמבוססת על ה-Design System. זהו תנאי מקדים לכל ה-Slices הבאים.
@@ -49,7 +49,7 @@
   - API Key Guard על `/api/v1/*`, שמחזיר 401 כשהמפתח חסר או שגוי.
   - Rate limiting.
 - **Frontend:**
-  - Middleware של Basic Auth עם `SITE_PASSWORD`.
+  - Middleware של Basic Auth עם `SITE_PASSWORD`. **הגנה זמנית:** מוחלפת בכניסה עם Google ב-Milestone 2 (ARCHITECTURE ADR-18).
   - מנגנון Proxy ב-Route Handlers ל-`BACKEND_API_URL`, שמוסיף את `X-API-Key`. ב-Milestone זה הוא נבדק מול endpoint בדיקה פנימי.
   - Design tokens מ-DESIGN סעיף 2: צבעים, הגופן Inter, Typography, Spacing, Radius ו-Shadow.
   - רכיבי בסיס: Button (Primary / Secondary / Destructive), Input, Select, Status Badge, Card, Alert, Modal.
@@ -79,10 +79,10 @@
 
 ---
 
-## Milestone 2 — Clients List
+## Milestone 2 — Sign in with Google & Clients List
 
 ### שם ומטרה
-המשתמש צופה ברשימת הלקוחות במסך הבית, ומחפש, מסנן, ממיין ומדפדף בה. זהו ה-Milestone הראשון שמשתמש במסד הנתונים, ולכן הוא כולל גם את הקמת סביבות ה-Database.
+המשתמש נכנס למערכת עם חשבון Google, ונרשם אוטומטית בכניסה הראשונה. אחר כך הוא צופה ברשימת הלקוחות במסך הבית, ומחפש, מסנן, ממיין ומדפדף בה. זהו ה-Milestone הראשון שמשתמש במסד הנתונים, ולכן הוא כולל גם את הקמת סביבות ה-Database.
 
 ### מה יש לממש
 - **הקמת סביבות MongoDB Atlas.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
@@ -92,7 +92,16 @@
   4. הגדרת Network Access.
   5. העתקת ה-Connection String של **Development** לקובץ `.env` המקומי.
   6. שמירת פרטי Production בצד, לשימוש ב-Milestone 5. **אין להתחבר ל-Production בשלב זה.**
-- **מנגנון Database Migrations**, לפי ARCHITECTURE סעיף 11.6. ה-Migration הראשון יוצר את ה-Collection `clients` ואת כל ה-Indexes מסעיפים 11.4 ו-11.5.
+- **הקמת Google OAuth לסביבת Development.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
+  1. יצירת Project ב-Google Cloud.
+  2. הגדרת OAuth consent screen, והעברתו למצב "In production" כדי שכל חשבון Google יוכל להיכנס.
+  3. יצירת OAuth Client מסוג Web application, עם redirect ל-`http://localhost:3000/api/auth/callback/google`.
+  4. העתקת ה-Client ID וה-Client Secret ל-`frontend/.env` (`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`), ויצירת `AUTH_SECRET`.
+- **מנגנון Database Migrations**, לפי ARCHITECTURE סעיף 11.7. ה-Migration הראשון יוצר את ה-Collections `clients` ו-`users` ואת כל ה-Indexes מסעיפים 11.4, 11.5 ו-11.6.
+- **Sign in with Google**, לפי PRD 4.1, ARCHITECTURE סעיפים 5.1, 11.6, 12.3 ו-16.1, ו-DESIGN סעיף 1.7:
+  - Backend: Users Module ו-`POST /api/v1/users/google-sign-in` (upsert לפי `googleId`).
+  - Frontend: Auth.js עם Google provider, מסך **Sign In**, ו-Proxy שבודק session: דפים מפנים ל-`/sign-in`, ו-`/api/*` מחזירים 401.
+  - הסרת Basic Auth ו-`SITE_PASSWORD` מ-Milestone 1, ועדכון `.env.example` וה-README.
 - **Client schema** לפי ARCHITECTURE סעיף 11.2.
 - **Backend:** `GET /api/v1/clients` לפי ARCHITECTURE סעיפים 12.1 ו-13:
   - `search` על Company Name, Email ו-Phone. חיפוש הטלפון לפי ספרות בלבד.
@@ -112,13 +121,17 @@
 - **Seed script לסביבת Development בלבד.** הסקריפט יוצר רשומות בדיקה שמכסות את שני הסטטוסים ואת השדות החסרים. הוא נחסם מלרוץ כש-`MONGODB_URI` מצביע על Cluster של Production.
 
 ### תוצר מצופה
-מסך Clients עובד מקצה לקצה מול MongoDB Development: רשומות הבדיקה מוצגות, וחיפוש, סינון, מיון ו-Pagination פועלים.
+המשתמש נכנס עם Google ונרשם בטבלת `users`. מסך Clients עובד מקצה לקצה מול MongoDB Development: רשומות הבדיקה מוצגות, וחיפוש, סינון, מיון ו-Pagination פועלים.
 
 ### Definition of Done
 - [ ] שני Projects ב-Atlas (Development ו-Production) קיימים, והמשתמש אישר את הקמתם. ה-Backend המקומי מחובר ל-Development בלבד.
 - [ ] ה-Migrations רצו בהצלחה על **Development**, וכל ה-Indexes קיימים בפועל.
 - [ ] הרצה חוזרת של ה-Migrations לא משנה ולא שוברת דבר.
 - [ ] Seed script רץ על Development.
+- [ ] Google OAuth Development הוגדר על ידי המשתמש, והכניסה עם Google עובדת.
+- [ ] כניסה ראשונה עם Google יוצרת רשומה ב-`users`, וכניסה חוזרת לא יוצרת כפילות. אין סיסמאות ב-Database.
+- [ ] בלי כניסה, כל דף מפנה ל-`/sign-in`, ו-`/api/*` מחזיר 401. חלון הסיסמה של הדפדפן ו-`SITE_PASSWORD` הוסרו.
+- [ ] מסך Sign In תואם ל-DESIGN.md סעיף 1.7.
 - [ ] החיפוש לפי Company Name, Email ו-Phone מחזיר תוצאות נכונות. למשל, `03-555` מוצא את `+972 3 555...` כשהספרות תואמות.
 - [ ] הסינון לפי Processing Status עובד.
 - [ ] המיון לפי Date Added עובד בשני הכיוונים, וברירת המחדל היא החדשים ראשונים.
@@ -246,22 +259,23 @@
     - IAM instance role עם הרשאת `ses:SendRawEmail` בלבד.
     - Environment variables ו-Secrets.
     - Health check ל-`/health`.
-  - **Vercel:** חיבור ה-Repository והגדרת `BACKEND_API_URL`, `BACKEND_API_KEY` ו-`SITE_PASSWORD` עם ערכי Production. כדאי לבדוק מול המשתמש איזו תוכנית Vercel נדרשת לשימוש מסחרי.
+  - **Google OAuth Production:** OAuth Client נפרד, עם redirect לכתובת ה-Production.
+  - **Vercel:** חיבור ה-Repository והגדרת `BACKEND_API_URL`, `BACKEND_API_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID` ו-`AUTH_GOOGLE_SECRET` עם ערכי Production. כדאי לבדוק מול המשתמש איזו תוכנית Vercel נדרשת לשימוש מסחרי.
 - **אבטחה לפי ARCHITECTURE סעיף 16:**
-  - `SITE_PASSWORD` ו-`BACKEND_API_KEY` חזקים ושונים מאלה של Development.
+  - `AUTH_SECRET` ו-`BACKEND_API_KEY` חזקים ושונים מאלה של Development.
   - HTTPS בלבד.
   - אין Secrets בקוד או ב-Repository.
 - **Smoke test ב-Production:** העלאה של HBL אמיתי ובדיקת התהליך כולו.
 - **README:** עדכון הוראות הפריסה, ותיעוד איך מריצים Migrations על Production.
 
 ### תוצר מצופה
-המערכת זמינה ב-Production בכתובת HTTPS שמוגנת בסיסמה, מחוברת לשירותי Production בלבד, וכל זרימות ה-PRD עובדות בה מקצה לקצה.
+המערכת זמינה ב-Production בכתובת HTTPS שמוגנת בכניסה עם Google, מחוברת לשירותי Production בלבד, וכל זרימות ה-PRD עובדות בה מקצה לקצה.
 
 ### Definition of Done
 - [ ] כל ה-Migrations רצו בהצלחה על **Production**, באישור המשתמש, וה-Indexes קיימים.
 - [ ] GitHub Actions בונה את ה-image ודוחף אותו ל-ECR בהצלחה.
 - [ ] ה-Frontend ב-Vercel וה-Backend ב-App Runner זמינים ב-HTTPS, ו-`/health` מחזיר 200.
-- [ ] האתר דורש סיסמה. ה-Backend מחזיר 401 לבקשה ישירה בלי מפתח API.
+- [ ] האתר דורש כניסה עם Google, והכניסה עובדת ב-Production. ה-Backend מחזיר 401 לבקשה ישירה בלי מפתח API.
 - [ ] ה-Backend ב-Production מחובר רק לשירותי Production.
 - [ ] Smoke test: העלאת HBL תקין יוצרת לקוח עם `Success`.
 - [ ] Smoke test: מקרה Manual Review שולח התראה עם ה-PDF ל-`ADMIN_REVIEW_EMAIL`.
@@ -275,6 +289,8 @@
 
 | פריט | השפעה | Milestone |
 |---|---|---|
+| טקסט הודעת השגיאה במסך Sign In | נדרש להצגת כשל כניסה | 2 |
+| כפתור Sign out | לא מוגדר ב-PRD. להחליט אם נדרש | 2 |
 | קובצי HBL לדוגמה | נדרשים לבדיקת החילוץ | 4 |
 | כתובת תיבת המייל הייעודית | נדרשת לאימות ב-SES | 4 |
 | כתובת המייל של המשתמש להתראות | `ADMIN_REVIEW_EMAIL` | 4 |

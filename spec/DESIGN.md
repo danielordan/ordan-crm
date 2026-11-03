@@ -29,7 +29,7 @@
 - בראש הסרגל מוצג שם המערכת: **Ordan Cargo Future Clients**.
 - פריטי הניווט: **Clients** ו-**Upload PDF**, עם אייקון לכל פריט. הפריט הפעיל מודגש.
 - אזור התוכן מימין לסרגל, על רקע בהיר.
-- הגישה למערכת מוגנת בחלון הסיסמה המובנה של הדפדפן. אין מסך Login מעוצב.
+- הכניסה למערכת היא דרך מסך **Sign In** (סעיף 1.7), שמוצג בלי המעטפת והסרגל.
 
 ## 1.1 Clients
 
@@ -117,6 +117,7 @@ Modal מעל Client Details, לא יעד ניווט נפרד:
 ## 1.5 ניווט בין המסכים
 
 ```text
+Sign In → Sign in with Google → Clients
 Sidebar: Clients | Upload PDF
 Clients
 ├── Upload PDF  → בסיום נשארים ב-Upload PDF
@@ -138,6 +139,25 @@ Clients
 - מספרי עמודים בתחתית הטבלה, וספירה בסגנון "1 - 7 of 32".
 - הכפתור **Upload Another PDF**, והטקסט "The client data has been extracted and saved."
 - מה-Style Guide: Card של Total Clients, פעמון התראות, אווטאר משתמש, כפתור Tertiary ו-Textarea.
+
+---
+
+## 1.7 Sign In
+
+> אין למסך זה תמונת ייחוס. הוא נבנה לפי ה-Style Guide.
+
+### מטרה
+כניסה למערכת עם חשבון Google. זה המסך היחיד שזמין בלי כניסה.
+
+### מה יש במסך
+- רקע `Background`, בלי סרגל הניווט.
+- Card אחד במרכז המסך.
+- שם המערכת בשתי שורות, כמו בסרגל: `Ordan Cargo` ב-Navy ו-`Future Clients` ב-Teal.
+- כפתור **Sign in with Google** ברוחב ה-Card, בסגנון Secondary, עם הלוגו של Google, לפי הנחיות המיתוג של Google.
+- אם הכניסה נכשלה: Alert מסוג Error מעל הכפתור.
+
+### מה קורה במסך
+לחיצה על הכפתור פותחת את חלון הבחירה של Google. אחרי כניסה מוצלחת המשתמש מגיע ל-**Clients**, או לדף שניסה לפתוח לפני הכניסה.
 
 ---
 

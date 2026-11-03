@@ -1,0 +1,24 @@
+{
+  "name": "ordan-crm-leads",
+  "private": true,
+  "description": "Ordan Cargo Future Clients — extracts potential clients from HBL PDF files.",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "concurrently --names backend,frontend --prefix-colors cyan,magenta --kill-others-on-fail \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "lint": "npm run lint -w backend && npm run lint -w frontend",
+    "test": "npm run test -w backend && npm run test -w frontend",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1"
+  }
+}
