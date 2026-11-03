@@ -4,23 +4,20 @@
 
 ---
 
-## Development Execution Rules — הנחיות מחייבות ל-AI המבצע את הפיתוח
+## Development Execution Rules — הנחיות מחייבות ל-AI שמבצע את הפיתוח
 
 1. יש לפתח את ה-Milestones **לפי הסדר** שמוגדר במסמך זה.
 2. בסיום כל Milestone יש **לעצור את הפיתוח** ולהציג למשתמש:
    - את התוצר שהושלם: מה עובד, איך מריצים אותו ואיך בודקים אותו.
-   - את תוצאות הבדיקה מול **כל** סעיף ב-Definition of Done. לכל סעיף יש לציין עבר/נכשל ואיך זה נבדק.
+   - את תוצאות הבדיקה מול **כל** סעיף ב-Definition of Done. לכל סעיף יש לציין עבר או נכשל, ואיך זה נבדק.
 3. **אין להתחיל** את ה-Milestone הבא ללא אישור מפורש של המשתמש.
-4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (MongoDB Atlas, AWS, OpenAI, Vercel) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
-5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובצי `.env` מקומיים (ב-`.gitignore`), ולצדם קובץ `.env.example` ללא ערכים.
-6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**. סביבת Production מתעדכנת רק ב-Milestone 6.
-7. אין להוסיף פיצ'רים, מסכים או יכולות שלא מופיעים ב-PRD.
-
----
-
-## מקור האמת
-
-שלושת מסמכי הפרויקט מתואמים זה עם זה. אם תתגלה סתירה במהלך הפיתוח, **ה-PRD הוא מקור האמת**. במקרה כזה יש לעצור ולעדכן את המשתמש לפני שממשיכים.
+4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (MongoDB Atlas, AWS, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
+5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובץ `.env` מקומי, ולצדו קובץ `.env.example` ללא ערכים.
+6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**.
+7. **סביבת Production לא בשימוש עד Milestone 5.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–4. בהם ה-Push לא ממתין ל-Production. ב-Milestone 5 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
+8. אין צורך להתקין Docker על מחשב המשתמש. ה-Docker image נבנה בענן ב-Milestone 5.
+9. אין להוסיף פיצ'רים, מסכים או יכולות שלא מופיעים ב-PRD. בפרט: **אין מייל שיווקי ואין Email Status**.
+10. אם מתגלה סתירה בין המסמכים, יש לפעול לפי כללי הסתירות שב-`CLAUDE.md`. כשהם לא מכריעים, יש לעצור ולשאול.
 
 ---
 
@@ -31,47 +28,53 @@
 | 1 | Project Foundation & App Shell | טכני (הקמה) | — |
 | 2 | Clients List | Vertical Slice | 1 |
 | 3 | Client Details, Edit & Delete | Vertical Slice | 2 |
-| 4 | PDF Upload & Automatic Client Creation | Vertical Slice | 3 |
-| 5 | Email Automation & Manual Review | Vertical Slice | 4 |
-| 6 | Production Deployment | טכני (פריסה) | 5 |
+| 4 | PDF Upload, Extraction & Manual Review Alerts | Vertical Slice | 3 |
+| 5 | Production Deployment | טכני (פריסה) | 4 |
 
 ---
 
 ## Milestone 1 — Project Foundation & App Shell
 
 ### שם ומטרה
-הקמת שלד הפרויקט: Frontend ו-Backend רצים מקומית ומחוברים זה לזה, עם מעטפת ממשק (App Shell) שמבוססת על ה-Design System. זהו תנאי מקדים לכל ה-Slices הבאים.
+הקמת שלד הפרויקט: Frontend ו-Backend רצים מקומית ומחוברים זה לזה דרך ה-Proxy המאובטח, עם מעטפת ממשק שמבוססת על ה-Design System. זהו תנאי מקדים לכל ה-Slices הבאים.
 
 ### מה יש לממש
 - **Repository** עם שתי אפליקציות: `frontend` (Next.js + React + TypeScript, App Router) ו-`backend` (NestJS + Node.js 24 LTS + TypeScript).
 - **Backend:**
-  - מבנה ה-Modules הריק לפי ARCHITECTURE סעיף 6.2.
-  - Config module שקורא את משתני הסביבה מ-ARCHITECTURE סעיף 22.
+  - מבנה ה-Modules לפי ARCHITECTURE סעיף 6.2.
+  - Config module שקורא את משתני הסביבה מ-ARCHITECTURE סעיף 19.
   - Structured JSON logging עם Request ID.
   - Global exception filter שלא חושף raw errors.
-  - `GET /health`.
-  - Prefix `/api/v1`.
-  - CORS לפי `FRONTEND_ORIGIN`.
-  - `Dockerfile`.
+  - `GET /health`, שלא דורש מפתח API.
+  - API Key Guard על `/api/v1/*`, שמחזיר 401 כשהמפתח חסר או שגוי.
+  - Rate limiting.
 - **Frontend:**
+  - Middleware של Basic Auth עם `SITE_PASSWORD`.
+  - מנגנון Proxy ב-Route Handlers ל-`BACKEND_API_URL`, שמוסיף את `X-API-Key`. ב-Milestone זה הוא נבדק מול endpoint בדיקה פנימי.
   - Design tokens מ-DESIGN סעיף 2: צבעים, הגופן Inter, Typography, Spacing, Radius ו-Shadow.
   - רכיבי בסיס: Button (Primary / Secondary / Destructive), Input, Select, Status Badge, Card, Alert, Modal.
-  - Top Navigation עם שם המערכת **Ordan Cargo Future Clients** ופריטי הניווט **Clients** ו-**Upload PDF**.
+  - **App Shell עם סרגל ניווט בצד שמאל**, לפי DESIGN סעיף 1.0: שם המערכת, **Clients** ו-**Upload PDF**.
   - Routes: `/` מפנה ל-`/clients`. בנוסף `/clients`, `/clients/[id]` ו-`/upload`, עם כותרות בלבד בשלב זה.
-  - API client שמשתמש ב-`NEXT_PUBLIC_API_BASE_URL`.
-- **כלי פיתוח:** Lint, Formatter ו-Test runner לשתי האפליקציות, `.env.example`, ו-README עם הוראות הרצה מקומית.
+- **כלי פיתוח:**
+  - Lint, Formatter ו-Test runner לשתי האפליקציות.
+  - `.env.example` לשתי האפליקציות.
+  - פקודה אחת שמריצה את שתי האפליקציות מקומית.
+  - README עם הוראות הרצה.
+  - עדכון "פקודות הרצה" ב-`CLAUDE.md`.
 
 ### תוצר מצופה
-המשתמש מריץ את שתי האפליקציות מקומית, רואה את מעטפת הממשק ומנווט בין Clients ל-Upload PDF. ה-Backend מחזיר תשובה תקינה ב-`/health`.
+המשתמש מריץ את המערכת מקומית, מזין את סיסמת הגישה, רואה את המעטפת עם סרגל הניווט ומנווט בין Clients ל-Upload PDF.
 
 ### Definition of Done
-- [ ] `frontend` ו-`backend` עולים מקומית לפי ה-README, ללא שגיאות.
-- [ ] `GET /health` מחזיר 200.
+- [ ] `frontend` ו-`backend` עולים מקומית בפקודה אחת, לפי ה-README, ללא שגיאות.
+- [ ] פתיחת האתר מציגה חלון סיסמה של הדפדפן. סיסמה שגויה נחסמת, וסיסמה נכונה נכנסת.
+- [ ] `GET /health` מחזיר 200 בלי מפתח API.
+- [ ] בקשה ל-`/api/v1/*` בלי `X-API-Key` או עם מפתח שגוי מחזירה 401.
+- [ ] בקשה שעוברת דרך ה-Proxy של ה-Frontend מגיעה ל-Backend בהצלחה.
 - [ ] גלישה ל-`/` מפנה ל-`/clients`.
-- [ ] Top Navigation מוצג בכל המסכים, והניווט בין Clients ל-Upload PDF עובד.
+- [ ] סרגל הניווט מוצג בכל המסכים, והניווט בין Clients ל-Upload PDF עובד.
 - [ ] הצבעים, הגופן והרכיבים תואמים ל-DESIGN.md.
 - [ ] Lint ו-Tests רצים ועוברים בשתי האפליקציות.
-- [ ] Docker image של ה-Backend נבנה בהצלחה ומחזיר 200 ב-`/health` כשהוא רץ מקומית.
 - [ ] אין Secrets ב-Repository, ו-`.env.example` מתעד את כל המשתנים.
 
 ---
@@ -83,243 +86,186 @@
 
 ### מה יש לממש
 - **הקמת סביבות MongoDB Atlas.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  1. יצירת חשבון ו-Project ב-MongoDB Atlas.
-  2. יצירת שתי סביבות נפרדות, **Development** ו-**Production**: Cluster נפרד לכל אחת, או לפחות Database נפרד, לפי ARCHITECTURE סעיף 23.
-  3. יצירת Database User נפרד לכל סביבה.
+  1. יצירת חשבון ב-MongoDB Atlas.
+  2. יצירת **שני Projects נפרדים**, Development ו-Production, עם Cluster בכל אחד.
+  3. יצירת Database User לכל סביבה.
   4. הגדרת Network Access.
-  5. העתקת ה-Connection String של Development לקובץ `.env` מקומי.
-  6. שמירת פרטי Production בצד לשימוש ב-Milestone 6.
-- **מנגנון Database Migrations:**
-  - Migration scripts בקוד, מנוהלים בגרסאות, שמריצים בפקודה אחת על הסביבה שמוגדרת ב-`MONGODB_URI`.
-  - Migration ראשון: Collection בשם `clients` וכל ה-Indexes מ-ARCHITECTURE סעיף 11.4.
-  - Unique partial index על `companyNameNormalized + emailNormalized`, לפי סעיף 11.5.
-- **Client schema:** השדות מ-ARCHITECTURE סעיף 11.2, כולל פרטי המשלוח.
-- **Backend:** `GET /api/v1/clients` עם:
-  - `search` על Company Name, Email ו-Phone.
-  - `processingStatus` ו-`emailStatus` כ-enums.
-  - `sortBy` מ-allowlist ו-`sortOrder`.
-  - `page` ו-`limit`, עם ברירת מחדל של 25 רשומות ומיון לפי `dateAdded desc`.
-  - Response לפי ARCHITECTURE סעיף 12.1, ללא count.
+  5. העתקת ה-Connection String של **Development** לקובץ `.env` המקומי.
+  6. שמירת פרטי Production בצד, לשימוש ב-Milestone 5. **אין להתחבר ל-Production בשלב זה.**
+- **מנגנון Database Migrations**, לפי ARCHITECTURE סעיף 11.6. ה-Migration הראשון יוצר את ה-Collection `clients` ואת כל ה-Indexes מסעיפים 11.4 ו-11.5.
+- **Client schema** לפי ARCHITECTURE סעיף 11.2.
+- **Backend:** `GET /api/v1/clients` לפי ARCHITECTURE סעיפים 12.1 ו-13:
+  - `search` על Company Name, Email ו-Phone. חיפוש הטלפון לפי ספרות בלבד.
+  - סינון לפי `processingStatus`.
+  - `sortOrder` לפי `dateAdded`.
+  - Pagination של 25 רשומות, עם `hasNextPage`.
 - **Frontend:** מסך **Clients** לפי DESIGN סעיף 1.1:
   - כותרת וכפתור **Upload PDF**.
-  - Search ו-Filters ל-Processing Status ול-Email Status.
-  - מיון, כולל לפי Date Added.
-  - טבלה עם 6 העמודות מה-PRD, Status Badges עם טקסט, ו-`NOT Available` לערכים חסרים.
-  - פעולת **View** ולחיצה על שורה, שתיהן מובילות ל-`/clients/[id]`.
-  - Pagination ו-**Refresh**.
+  - Search, Filter ו-Refresh.
+  - טבלה עם 5 עמודות ו-**View**.
+  - מיון בלחיצה על Date Added.
+  - Status Badges.
+  - הצגת `NOT Available` לערכים חסרים.
+  - תאריכים בפורמט `Jul 20, 2026`, לפי Asia/Jerusalem.
+  - **Previous** ו-**Next**.
   - מצב ריק ומצב טעינה.
-- **Seed script לסביבת Development בלבד.** הסקריפט יוצר רשומות בדיקה שמכסות את כל הסטטוסים ואת השדות החסרים. הוא נחסם מלרוץ מול Production.
+- **Seed script לסביבת Development בלבד.** הסקריפט יוצר רשומות בדיקה שמכסות את שני הסטטוסים ואת השדות החסרים. הוא נחסם מלרוץ כש-`MONGODB_URI` מצביע על Cluster של Production.
 
 ### תוצר מצופה
 מסך Clients עובד מקצה לקצה מול MongoDB Development: רשומות הבדיקה מוצגות, וחיפוש, סינון, מיון ו-Pagination פועלים.
 
 ### Definition of Done
-- [ ] שתי סביבות Atlas (Development ו-Production) קיימות. המשתמש אישר את הקמתן, וה-Backend המקומי מחובר ל-Development בלבד.
-- [ ] ה-Migrations רצו בהצלחה על **Development**, וכל ה-Indexes קיימים בפועל (נבדק ב-Atlas או בסקריפט).
+- [ ] שני Projects ב-Atlas (Development ו-Production) קיימים, והמשתמש אישר את הקמתם. ה-Backend המקומי מחובר ל-Development בלבד.
+- [ ] ה-Migrations רצו בהצלחה על **Development**, וכל ה-Indexes קיימים בפועל.
 - [ ] הרצה חוזרת של ה-Migrations לא משנה ולא שוברת דבר.
-- [ ] Seed script רץ על Development, ונחסם כש-`MONGODB_URI` מצביע על Production.
-- [ ] החיפוש לפי Company Name, Email ו-Phone מחזיר את התוצאות הנכונות.
-- [ ] כל אחד מהסינונים לפי Processing Status ו-Email Status עובד, גם בשילוב ביניהם.
-- [ ] המיון לפי Date Added עובד, וברירת המחדל היא החדשים ראשונים.
-- [ ] Pagination של 25 רשומות בעמוד, עם מעבר עמודים תקין.
+- [ ] Seed script רץ על Development.
+- [ ] החיפוש לפי Company Name, Email ו-Phone מחזיר תוצאות נכונות. למשל, `03-555` מוצא את `+972 3 555...` כשהספרות תואמות.
+- [ ] הסינון לפי Processing Status עובד.
+- [ ] המיון לפי Date Added עובד בשני הכיוונים, וברירת המחדל היא החדשים ראשונים.
+- [ ] יש 25 רשומות בעמוד, ו-Previous ו-Next עובדים ומושבתים בקצוות.
 - [ ] Refresh טוען את הנתונים מחדש.
-- [ ] ערכים חסרים מוצגים כ-`NOT Available`, וה-Database שומר אותם כ-`null`.
-- [ ] פרמטרים לא חוקיים (sortBy שלא ב-allowlist, status לא קיים) מחזירים 400, לא 500.
-- [ ] Unit/Integration tests ל-API של הרשימה עוברים.
-- [ ] המסך תואם ל-DESIGN.md.
+- [ ] ערכים חסרים מוצגים כ-`NOT Available`, וב-Database הם `null`.
+- [ ] פרמטרים לא חוקיים מחזירים 400, לא 500.
+- [ ] Tests ל-API של הרשימה עוברים.
+- [ ] המסך תואם ל-DESIGN.md, כולל סעיף 1.6 (מה לא נבנה).
 
 ---
 
 ## Milestone 3 — Client Details, Edit & Delete
 
 ### שם ומטרה
-המשתמש צופה בכל פרטי הלקוח, עורך את פרטי הקשר שלו ומוחק אותו, כולל עדכון הסטטוסים שנגזר מעריכה ידנית.
+המשתמש צופה בכל פרטי הלקוח, עורך אותם, כולל פרטי המשלוח, ורואה את הסטטוס מחושב מחדש. בנוסף הוא יכול למחוק לקוח.
 
 ### מה יש לממש
 - **Backend:**
-  - `GET /api/v1/clients/:id`, עם ObjectId validation ו-404 ללקוח שלא קיים.
-  - `PATCH /api/v1/clients/:id`:
-    - השדות הניתנים לעריכה: `companyName`, `address`, `phone`, `email` בלבד. פרטי המשלוח לקריאה בלבד.
-    - הערכים נשמרים כפי שהוזנו, ללא ולידציה עסקית.
-    - השדות המנורמלים מתעדכנים.
-    - **גזירת סטטוסים** לפי PRD 4.5 ו-ARCHITECTURE 10.6:
-      - השלמת Company Name ללקוח עם `Failed` משנה את Processing Status ל-`Success`.
-      - הוספת Email ללקוח עם `Missing Email` משנה את Email Status ל-`Email Added Manually`.
-      - `Sent` לא נוצר לעולם מעריכה.
-    - עריכה **לא** שולחת מייל.
-  - `DELETE /api/v1/clients/:id`: Hard delete.
+  - `ClientStatusService`, לפי ARCHITECTURE סעיף 9.1, שמחשב את `processingStatus` ואת `errorDetails`.
+  - `DuplicateDetectionService`, לפי ARCHITECTURE סעיפים 9.3 ו-9.4. ב-Milestone זה הוא משמש לעריכה, וב-Milestone 4 גם להעלאה.
+  - `GET /api/v1/clients/:id`.
+  - `PATCH /api/v1/clients/:id`, עם כל 9 השדות הניתנים לעריכה:
+    - עדכון השדות המנורמלים.
+    - חישוב מחדש של הסטטוס.
+    - החזרת 409 על כפילות.
+  - `DELETE /api/v1/clients/:id`.
+  - ObjectId validation, ו-404 ללקוח שלא קיים.
 - **Frontend:**
-  - מסך **Client Details** לפי DESIGN סעיף 1.3:
-    - **Back to Clients**.
-    - השדות בסדר שמוגדר ב-PRD 4.2, כולל Origin Port, Origin Country, Destination Port, Incoterms ו-Shipment Type.
-    - Status Badges.
-    - **Error Details** רק כשיש ערך.
-    - `NOT Available` לערכים חסרים.
-  - מצב עריכה: **Edit**, ואחריו **Save** ו-**Cancel**. Cancel מחזיר את הערכים המקוריים.
-  - Delete Modal לפי DESIGN סעיף 1.4: הכותרת **Delete Client**, הטקסט `Are you sure you want to delete this client?`, הבהרה שהפעולה אינה הפיכה, והכפתורים **Cancel**, **Delete** (אדום) ו-Close. אחרי המחיקה המשתמש חוזר ל-Clients.
+  - מסך **Client Details**, לפי DESIGN סעיף 1.3: Cards לפרטי הלקוח, לפרטי המשלוח ולמצב הרשומה; Date Added עם שעה; Error Details רק כשהסטטוס הוא `Failed`.
+  - מצב עריכה, עם Save ו-Cancel ו-Dropdown ל-Shipment Type. בכפילות מוצגת הודעה, והטופס נשאר במצב עריכה.
+  - Delete Modal, לפי DESIGN סעיף 1.4. אחרי המחיקה המשתמש חוזר ל-Clients.
 
 ### תוצר מצופה
-המשתמש פותח לקוח מהרשימה, רואה את כל פרטיו, עורך ושומר אותם, ורואה את הסטטוסים מתעדכנים לפי הכללים. הוא יכול גם למחוק לקוח אחרי אישור.
+המשתמש פותח לקוח מהרשימה, רואה את כל פרטיו, עורך ושומר אותם, ורואה את הסטטוס מתעדכן לפי הכללים. בנוסף הוא יכול למחוק לקוח אחרי אישור.
 
 ### Definition of Done
-- [ ] Client Details מציג את כל השדות בסדר שמוגדר ב-PRD 4.2, ו-Error Details מוצג רק כשיש ערך.
+- [ ] Client Details מציג את כל השדות לפי DESIGN, ו-Error Details מוצג רק כשהסטטוס הוא `Failed`.
 - [ ] Edit, Save ו-Cancel עובדים, והערכים נשמרים בדיוק כפי שהוזנו.
-- [ ] פרטי המשלוח אינם ניתנים לעריכה, לא ב-UI ולא ב-API.
-- [ ] השלמת Company Name ללקוח `Failed` משנה את Processing Status ל-`Success` (נבדק על רשומת Seed).
-- [ ] הוספת Email ללקוח `Missing Email` משנה את Email Status ל-`Email Added Manually` (נבדק על רשומת Seed).
-- [ ] עריכה לא משנה סטטוס ל-`Sent` ולא מפעילה שליחת מייל (נבדק ב-Unit test).
-- [ ] Delete דורש אישור ב-Modal. Cancel ו-Close לא משנים דבר. Delete מוחק לצמיתות וחוזר ל-Clients.
+- [ ] השלמה של כל שדות החובה ברשומה `Failed` משנה את הסטטוס ל-`Success` ומרוקנת את Error Details. נבדק על רשומת Seed.
+- [ ] מחיקה של שדה חובה ברשומה `Success` משנה את הסטטוס ל-`Failed`, ו-Error Details מפרט את השדות החסרים.
+- [ ] Address ו-Phone ריקים לא משפיעים על הסטטוס.
+- [ ] עריכה שיוצרת כפילות נחסמת, לפי כל אחד משלושת כללי הכפילות, ומוצגת הודעה. שום דבר לא נשמר.
+- [ ] Delete דורש אישור. Cancel ו-Close לא משנים דבר, ו-Delete מוחק לצמיתות וחוזר ל-Clients.
 - [ ] `:id` לא תקין מחזיר 400, ולקוח שלא קיים מחזיר 404.
-- [ ] Unit tests לכללי גזירת הסטטוסים ו-Integration tests ל-GET, PATCH ו-DELETE עוברים.
+- [ ] Unit tests ל-`ClientStatusService` ול-`DuplicateDetectionService`, ו-Integration tests ל-GET, PATCH ו-DELETE, עוברים.
 - [ ] המסך וה-Modal תואמים ל-DESIGN.md.
 
 ---
 
-## Milestone 4 — PDF Upload & Automatic Client Creation
+## Milestone 4 — PDF Upload, Extraction & Manual Review Alerts
 
 ### שם ומטרה
-המשתמש מעלה PDF של HBL, והמערכת מחלצת ממנו את פרטי ה-Consignee ואת פרטי המשלוח, בודקת כפילות ושומרת לקוח חדש עם הסטטוסים הנכונים. שליחת המיילים בפועל מתווספת ב-Milestone 5.
+המשתמש מעלה PDF של HBL. המערכת מחלצת ממנו את פרטי ה-Consignee ואת פרטי המשלוח, בודקת כפילות ושומרת לקוח עם הסטטוס הנכון. כשנדרש טיפול ידני, נשלחת למשתמש התראה במייל עם ה-PDF.
 
 ### מה יש לממש
 - **הקמת שירותים חיצוניים לסביבת Development.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  - S3 Bucket פרטי לסביבת Development, לפי ARCHITECTURE סעיף 14: Block Public Access, Encryption at rest ו-Lifecycle rule כ-safety net.
-  - IAM credentials לפיתוח מקומי, עם הרשאות לאותו Bucket בלבד.
   - OpenAI API key לסביבת Development.
-- **Database Migration:** עדכון ה-schema או ה-Indexes אם נדרש מעבר למה שנוצר ב-Milestone 2. ה-Migration רץ על Development.
-- **Backend: `POST /api/v1/documents/process`.**
-  - קובץ PDF יחיד, עם ולידציה בצד השרת: MIME, format ו-technical size limit מתוך configuration.
-  - שמירה זמנית ב-S3 תחת `processing/{uuid}.pdf`, ומחיקה ב-`finally`.
+  - חשבון AWS, ובו Amazon SES ב-Region שנבחר:
+    - אימות ה-identity של תיבת המייל הייעודית (`SES_FROM_ADDRESS`).
+    - אימות כתובת המשתמש (`ADMIN_REVIEW_EMAIL`).
+    - SES נשאר ב-Sandbox.
+  - IAM user לפיתוח מקומי עם הרשאת `ses:SendRawEmail` בלבד.
+- **Database Migration**, אם נדרש שינוי ב-schema או ב-Indexes. ה-Migration רץ על Development.
+- **Backend:** `POST /api/v1/documents/process`, לפי ARCHITECTURE סעיפים 6.3, 7, 8, 9, 10 ו-12.2:
+  - קובץ PDF יחיד עד 4 MB, עם ולידציה של MIME ו-magic bytes. הקובץ נשאר בזיכרון בלבד.
   - חילוץ טקסט עם PDF.js.
-  - חילוץ מובנה עם OpenAI Responses API ו-Structured Outputs.
-    - Schema: `companyName`, `address`, `phone`, `email`, `originPort`, `originCountry`, `destinationPort`, `incoterms`, `shipmentType` (`FCL | LCL | null`).
-    - Prompt rules לפי ARCHITECTURE סעיף 8.4: חילוץ Consignee בלבד ו-No guessing.
-  - ולידציה ו-normalization של התוצאה לפי ARCHITECTURE סעיף 8.5.
-  - **Business Rules** כקוד deterministic ב-`ProcessingService`:
-    - Company Name חסר גורם ל-`Failed` ול-`errorDetails`.
-    - Duplicate Detection לפי PRD 4.6. במקרה של כפילות המערכת מדלגת בשקט, לא משנה את הרשומה הקיימת, ומטפלת ב-duplicate-key conflict כ-duplicate ולא כ-500.
-    - יצירת רשומה עם כל השדות, כולל פרטי המשלוח ו-`dateAdded`.
-  - **Email Decision Engine** לפי PRD 4.7–4.8, שקובע את Email Status:
-    - Email חסר: `Missing Email`.
-    - פרט משלוח חסר: `Requires Manual Review`, עם `errorDetails` שמפרט את השדות החסרים.
-    - כל התנאים מתקיימים: הרשומה מוכנה לשליחה.
-    - השליחה עצמה עוברת דרך interface בשם `EmailSender`, לפי ARCHITECTURE סעיף 27. ב-Milestone זה מוזרק לו **Stub לפיתוח בלבד** שרושם ללוג את המייל שהיה נשלח. ה-Stub נחסם בהגדרת Production.
-  - כשל PDF.js או כשל OpenAI (API או schema) עובר לנתיב Manual Review לפי ARCHITECTURE סעיפים 7.4 ו-8.5, עם שמירת המידע הזמין ו-`errorDetails`.
-  - Response לפי ARCHITECTURE סעיף 12.2: `created`, `duplicate` או `manual_review`.
-  - Log events מ-ARCHITECTURE סעיף 20 ו-processing outcome לפי סעיף 21, ללא תוכן המסמך.
-- **Frontend:** מסך **Upload PDF** לפי DESIGN סעיף 1.2:
-  - אזור Drag & Drop, הטקסט **Drag and drop PDF file here** והכפתור **Choose PDF File**.
-  - חסימת קובץ שאינו PDF עם ההודעה `Only PDF files are supported.`
+  - חילוץ מובנה עם OpenAI Structured Outputs, עם timeout של 60 שניות, לפי ה-Prompt rules בסעיף 8.4.
+  - Normalization וכלל "TO ORDER".
+  - כשל חילוץ מלא: לא נוצרת רשומה, ונשלחת התראה.
+  - Duplicate Detection באמצעות `DuplicateDetectionService` מ-Milestone 3.
+  - יצירת רשומה, כשהסטטוס מחושב ב-`ClientStatusService`.
+  - כשהרשומה נשמרה עם `Failed`: **התראה אחת** עם כל השדות החסרים, המידע שחולץ וה-PDF.
+  - `SesNotificationSender`: אין retry, ובכשל מוחזר `notificationSent: false`.
+  - Log events ו-`processing_outcome`, לפי ARCHITECTURE סעיף 18. בלי תוכן המסמך ובלי Secrets.
+- **Frontend:** מסך **Upload PDF**, לפי DESIGN סעיף 1.2:
+  - Drag & Drop ו-**Choose PDF File**.
+  - בדיקת סוג וגודל בצד הלקוח.
   - Processing indicator.
-  - הודעת הצלחה בחלק העליון, ללא שם הקובץ. אזור ההעלאה נשאר זמין.
-  - בכשל טכני: הודעת Error וכפתור **Try Again**.
+  - הודעות התוצאה לפי הטבלה ב-DESIGN.
+  - **Try Again** בכשל טכני.
+  - Route ההעלאה ב-Proxy מגדיר `maxDuration` מתאים.
 
 ### תוצר מצופה
-המשתמש מעלה HBL אמיתי, והלקוח מופיע במסך Clients עם פרטי Consignee ופרטי משלוח נכונים ב-Client Details, ועם Processing Status ו-Email Status שנקבעו לפי הכללים. העלאה חוזרת של אותו קובץ לא יוצרת רשומה כפולה. קובץ ה-PDF לא נשאר ב-S3.
+- המשתמש מעלה HBL אמיתי, והלקוח מופיע במסך Clients עם הפרטים והסטטוס הנכונים.
+- מקרה חריג מייצר התראה אחת שמגיעה לתיבת המשתמש, עם ה-PDF מצורף.
+- העלאה חוזרת של אותו קובץ לא יוצרת כפילות.
 
 ### Definition of Done
-- [ ] S3 Development ו-OpenAI key הוגדרו על ידי המשתמש, והחיבור אליהם עובד.
+- [ ] OpenAI ו-SES Development הוגדרו על ידי המשתמש, והחיבור אליהם עובד.
 - [ ] Migrations, אם נוספו, רצו בהצלחה על **Development**.
-- [ ] העלאת HBL תקין יוצרת לקוח עם כל 9 השדות שחולצו בצורה נכונה. נבדק על קובצי HBL לדוגמה שהמשתמש סיפק.
+- [ ] העלאת HBL תקין יוצרת לקוח עם כל 9 השדות שחולצו בצורה נכונה, עם `Success`, ומוצגת `Client added successfully.` נבדק על קובצי HBL לדוגמה שהמשתמש סיפק.
 - [ ] שדה שלא מופיע במסמך נשמר כ-`null`. המערכת לא מנחשת ערכים.
-- [ ] העלאה חוזרת עם Company Name ו-Email זהים מדלגת בשקט: אין רשומה חדשה, ו-`dateAdded` ופרטי המשלוח הקיימים לא משתנים.
-- [ ] Company Name זהה עם Email שונה יוצר רשומה חדשה.
-- [ ] בלי Email, הכפילות נקבעת לפי Company Name בלבד.
-- [ ] Company Name חסר נותן `Processing Status = Failed`, והמידע שחולץ נשמר.
-- [ ] Email חסר נותן `Email Status = Missing Email`.
-- [ ] פרט משלוח חסר נותן `Email Status = Requires Manual Review`, ו-`errorDetails` מפרט אילו שדות חסרים.
+- [ ] HBL שחסר בו שדה חובה אחד או יותר נשמר עם `Failed`, ו-Error Details מפרט את כולם. מתקבלת **התראה אחת** עם ה-PDF, ומוצגת הודעת Manual Review.
 - [ ] Address או Phone חסרים לא מונעים `Success`.
-- [ ] כשל PDF.js או OpenAI לא מחזיר 500 למשתמש ומטופל לפי הכללים.
-- [ ] קובץ שאינו PDF נחסם גם ב-Frontend וגם ב-Backend.
-- [ ] קובץ ה-PDF נמחק מ-S3 בסיום העיבוד, בכל מסלול (נבדק ב-Bucket).
+- [ ] Consignee מסוג "TO ORDER" נשמר עם Company Name חסר.
+- [ ] כפילות לפי כל אחד משלושת הכללים: אין רשומה חדשה, אין שינוי ברשומה הקיימת, ומוצגת הודעת כפילות.
+- [ ] בלי Company Name ובלי Email נוצרת רשומה חדשה גם בהעלאה חוזרת.
+- [ ] PDF ללא טקסט, כשל AI או timeout מדומה: לא נוצרת רשומה, ומתקבלת התראה עם סיבת הכשל וה-PDF.
+- [ ] כשל מדומה בשליחת ההתראה: אין retry, ומוצגת ההודעה `Manual review required, but the notification email could not be sent...`
+- [ ] קובץ שאינו PDF, או קובץ גדול מ-4 MB, נחסם גם ב-Frontend וגם ב-Backend, עם ההודעה המתאימה.
+- [ ] ה-PDF לא נשמר בשום מקום: לא בדיסק ולא ב-Database.
 - [ ] הלוגים מכילים את אירועי העיבוד ואת ה-outcome, ללא טקסט ה-PDF וללא Secrets.
-- [ ] Unit tests עם mocks ל-OpenAI, S3 ו-EmailSender עוברים לכל תרחישי ARCHITECTURE סעיף 28 שרלוונטיים לשלב זה.
+- [ ] כל תרחישי ARCHITECTURE סעיף 24 מכוסים ב-tests, עם mocks ל-OpenAI ול-SES, ועוברים.
 - [ ] מסך Upload PDF תואם ל-DESIGN.md.
 
 ---
 
-## Milestone 5 — Email Automation & Manual Review
-
-### שם ומטרה
-המערכת שולחת בפועל את המייל השיווקי ללקוח, ושולחת למשתמש התראות Manual Review עם ה-PDF המקורי. זה משלים את התהליך האוטומטי מקצה לקצה.
-
-### מה יש לממש
-- **הקמת Amazon SES לסביבת Development.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  - אימות ה-identity של תיבת המייל הייעודית.
-  - אימות כתובת המשתמש שמקבלת את ההתראות (`ADMIN_REVIEW_EMAIL`).
-  - ב-SES Sandbox, אימות כתובות הבדיקה שאליהן יישלח המייל השיווקי.
-- **`SesEmailSender`:** מימוש של `EmailSender` שמחליף את ה-Stub מ-Milestone 4.
-- **Marketing Email:**
-  - בעברית, לפי תבנית קבועה (HTML עם plain-text fallback) ושדות משתנים מתוך ה-HBL, כולל פרטי המשלוח.
-  - כל עוד הנוסח הסופי הוא **TBD**, משתמשים בתבנית placeholder שמסומנת בבירור. התבנית נשמרת כקובץ בקוד, כך שאפשר להחליף אותה בלי לשנות לוגיקה.
-- **Manual Review Email:**
-  - באנגלית, נשלח ל-`ADMIN_REVIEW_EMAIL`, עם ה-PDF המקורי מצורף, לפי PRD 4.10.
-  - מכיל את סיבת הבדיקה ואת המידע שחולץ.
-  - כשחסרים פרטי משלוח, מכיל גם את רשימת השדות החסרים ואת נוסח המייל השיווקי שתוכנן.
-- **חיווט לכל המסלולים:**
-  - Company Name חסר.
-  - Email חסר.
-  - פרט משלוח חסר.
-  - כשל PDF.js או AI.
-  - כשל SES: Email Status הופך ל-`Failed`, נשלחת התראה, ואין retry עסקי.
-  - שליחה מוצלחת: Email Status הופך ל-`Sent`, רק אחרי אישור מ-SES.
-  - מחיקת ה-PDF מ-S3 מתבצעת רק אחרי ניסיון שליחת ההתראה.
-
-### תוצר מצופה
-התהליך המלא מה-PRD עובד בסביבת Development:
-- HBL תקין מגיע ללקוח ממייל שיווקי בעברית, ו-Email Status הוא `Sent`.
-- כל מקרה חריג מגיע לתיבת המשתמש כמייל באנגלית עם ה-PDF מצורף.
-
-### Definition of Done
-- [ ] SES Development הוגדר על ידי המשתמש, וה-identities מאומתים.
-- [ ] HBL עם כל הנתונים גורם לשליחת מייל שיווקי בעברית שמתקבל בפועל, והסטטוסים הם `Sent` ו-`Success`.
-- [ ] Email חסר: לא נשלח מייל שיווקי, ומתקבלת התראה באנגלית עם ה-PDF.
-- [ ] פרט משלוח חסר: לא נשלח מייל שיווקי, ומתקבלת התראה עם ה-PDF, רשימת השדות החסרים ונוסח המייל המתוכנן.
-- [ ] Company Name חסר: מתקבלת התראה עם ה-PDF.
-- [ ] כשל SES (מדומה): Email Status הופך ל-`Failed`, אין ניסיון שליחה חוזר, ומתקבלת התראה עם סיבת הכשל וה-PDF, ככל שאפשר.
-- [ ] `Sent` לא מוצג אף פעם בלי שליחה מוצלחת בפועל.
-- [ ] כפילות ועריכה ידנית לא שולחות אף מייל.
-- [ ] ה-PDF נמחק מ-S3 אחרי שליחת ההתראה, בכל המסלולים.
-- [ ] `errorDetails` קצר וברור למשתמש, ללא stack traces או Secrets.
-- [ ] כל תרחישי ARCHITECTURE סעיף 28 מכוסים ב-tests ועוברים.
-- [ ] תבנית המייל השיווקי מסומנת כ-placeholder עד שיתקבל הנוסח הסופי.
-
----
-
-## Milestone 6 — Production Deployment
+## Milestone 5 — Production Deployment
 
 ### שם ומטרה
 פריסת המערכת לסביבת Production מאובטחת, ועדכון סביבת Production לכל השינויים שבוצעו עד כה.
 
 ### מה יש לממש
 - **הקמת שירותי Production.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  - **MongoDB Atlas Production**, שהוקם ב-Milestone 2: הרצת **כל ה-Database Migrations** על Production.
-  - **S3 Bucket ל-Production**, עם אותן הגדרות אבטחה ו-Lifecycle כמו ב-Development.
-  - **SES Production:** אימות ה-domain או ה-identity של התיבה הייעודית, ובקשת יציאה מ-Sandbox.
+  - **MongoDB Atlas Production**, שהוקם ב-Milestone 2: הרצת **כל ה-Database Migrations** על Production, **באישור מפורש של המשתמש**.
+  - **SES:** אימות ה-identities לשימוש ב-Production. הם נשארים ב-Sandbox.
   - **OpenAI key** ל-Production.
-  - **AWS App Runner:** ECR, Docker image, IAM instance role עם הרשאות מינימליות ל-S3 ול-SES, Environment variables ו-Secrets, ו-Health check ל-`/health`.
-  - **Vercel:** חיבור ה-Repository, והגדרת `NEXT_PUBLIC_API_BASE_URL` לכתובת ה-Backend ב-Production.
-- **אבטחה לפי ARCHITECTURE סעיפים 17–18:**
-  - CORS allowlist לכתובת ה-Frontend ב-Production בלבד.
-  - Rate limiting.
-  - הגבלת גישה ברמת hosting או network, ככל שהפלטפורמה מאפשרת.
+  - **GitHub Actions + Amazon ECR:**
+    - Dockerfile ל-Backend.
+    - Workflow שבונה את ה-image ודוחף אותו ל-ECR.
+    - AWS credentials מוגדרים כ-GitHub Secrets.
+  - **AWS App Runner:**
+    - deploy מ-ECR.
+    - IAM instance role עם הרשאת `ses:SendRawEmail` בלבד.
+    - Environment variables ו-Secrets.
+    - Health check ל-`/health`.
+  - **Vercel:** חיבור ה-Repository והגדרת `BACKEND_API_URL`, `BACKEND_API_KEY` ו-`SITE_PASSWORD` עם ערכי Production. כדאי לבדוק מול המשתמש איזו תוכנית Vercel נדרשת לשימוש מסחרי.
+- **אבטחה לפי ARCHITECTURE סעיף 16:**
+  - `SITE_PASSWORD` ו-`BACKEND_API_KEY` חזקים ושונים מאלה של Development.
   - HTTPS בלבד.
-  - אין Secrets ב-`NEXT_PUBLIC_*`.
-  - כל ההגדרות נקראות מקונפיגורציה, וה-Stub של `EmailSender` חסום.
+  - אין Secrets בקוד או ב-Repository.
 - **Smoke test ב-Production:** העלאה של HBL אמיתי ובדיקת התהליך כולו.
 - **README:** עדכון הוראות הפריסה, ותיעוד איך מריצים Migrations על Production.
 
 ### תוצר מצופה
-המערכת זמינה ב-Production בכתובת HTTPS, מחוברת לשירותי Production בלבד, וכל זרימות ה-PRD עובדות בה מקצה לקצה.
+המערכת זמינה ב-Production בכתובת HTTPS שמוגנת בסיסמה, מחוברת לשירותי Production בלבד, וכל זרימות ה-PRD עובדות בה מקצה לקצה.
 
 ### Definition of Done
-- [ ] כל ה-Migrations רצו בהצלחה על **Production**, וה-Indexes קיימים.
+- [ ] כל ה-Migrations רצו בהצלחה על **Production**, באישור המשתמש, וה-Indexes קיימים.
+- [ ] GitHub Actions בונה את ה-image ודוחף אותו ל-ECR בהצלחה.
 - [ ] ה-Frontend ב-Vercel וה-Backend ב-App Runner זמינים ב-HTTPS, ו-`/health` מחזיר 200.
-- [ ] ה-Backend ב-Production מחובר רק לשירותי Production: Atlas, S3, SES ו-OpenAI.
-- [ ] Smoke test: העלאת HBL תקין יוצרת לקוח, ומייל שיווקי נשלח ומתקבל.
+- [ ] האתר דורש סיסמה. ה-Backend מחזיר 401 לבקשה ישירה בלי מפתח API.
+- [ ] ה-Backend ב-Production מחובר רק לשירותי Production.
+- [ ] Smoke test: העלאת HBL תקין יוצרת לקוח עם `Success`.
 - [ ] Smoke test: מקרה Manual Review שולח התראה עם ה-PDF ל-`ADMIN_REVIEW_EMAIL`.
 - [ ] Clients, Client Details, Edit ו-Delete עובדים ב-Production.
-- [ ] CORS חוסם origins אחרים, ואין Secrets בקוד ה-Frontend או ב-Repository.
-- [ ] ה-S3 Bucket ב-Production פרטי ומוצפן, עם Lifecycle rule, ואין בו קבצים שנשארו אחרי העיבוד.
 - [ ] Logs זמינים ב-CloudWatch, ללא תוכן PDF וללא Secrets.
 - [ ] ה-README מעודכן עם הוראות הפריסה וה-Migration.
 
@@ -327,11 +273,13 @@
 
 ## פריטים פתוחים (TBD) שמשפיעים על הפיתוח
 
-אלה פריטים מה-PRD שאינם חוסמים את ה-Milestones, אבל צריך להשלים אותם לפני השימוש האמיתי:
-
 | פריט | השפעה | Milestone |
 |---|---|---|
-| נוסח סופי של המייל השיווקי בעברית | עד שיתקבל, משתמשים בתבנית placeholder | 5 (החלפה בכל שלב) |
-| כתובת תיבת המייל הייעודית | נדרשת לאימות ב-SES | 5 (Development), 6 (Production) |
-| כתובת המייל של המשתמש להתראות | `ADMIN_REVIEW_EMAIL` | 5 |
 | קובצי HBL לדוגמה | נדרשים לבדיקת החילוץ | 4 |
+| כתובת תיבת המייל הייעודית | נדרשת לאימות ב-SES | 4 |
+| כתובת המייל של המשתמש להתראות | `ADMIN_REVIEW_EMAIL` | 4 |
+| זמינות מודל ה-AI שנבחר | לבדוק בתחילת Milestone 4 | 4 |
+| מדיניות שמירת הנתונים של OpenAI | לבדוק לפני שימוש עם נתונים אמיתיים | 4 |
+| תוכנית Vercel לשימוש מסחרי | עלות | 5 |
+| בדיקה משפטית למייל שיווקי | לא משפיעה על ה-MVP. תנאי לגרסה עתידית | — |
+| מדיניות גיבוי | לא משפיעה על ה-MVP | — |
