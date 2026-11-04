@@ -16,6 +16,7 @@ import {
   type ClientsViewState,
   type StatusFilter,
 } from '@/lib/clients-query';
+import { SessionExpiredError } from '@/lib/clients-api';
 import { cn } from '@/lib/cn';
 import { ClientsTable } from './ClientsTable';
 import { Pagination } from './Pagination';
@@ -27,8 +28,6 @@ const STATUS_OPTIONS = [
   { value: 'Success', label: 'Success' },
   { value: 'Failed', label: 'Failed' },
 ];
-
-class SessionExpiredError extends Error {}
 
 async function fetchClients(query: string, signal: AbortSignal): Promise<ClientListResponse> {
   const response = await fetch(`/api/clients${query}`, { signal, cache: 'no-store' });

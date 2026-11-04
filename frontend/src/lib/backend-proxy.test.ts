@@ -64,6 +64,15 @@ describe('proxyToBackend', () => {
     expect(await response.json()).toEqual({ error: 'UNAUTHORIZED' });
   });
 
+  it('passes an empty 204 response through', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    const request = new Request('http://localhost/api/clients/1', { method: 'DELETE' });
+    const response = await proxyToBackend(request, '/api/v1/clients/1');
+    expect(fetchMock.mock.calls[0][1]?.method).toBe('DELETE');
+    expect(response.status).toBe(204);
+    expect(await response.text()).toBe('');
+  });
+
   it('returns 502 without internal details when the backend is unreachable', async () => {
     fetchMock.mockRejectedValue(new Error('connect ECONNREFUSED 10.0.0.1:4000'));
     const response = await proxyToBackend(new Request('http://localhost/api/ping'), '/api/v1/ping');

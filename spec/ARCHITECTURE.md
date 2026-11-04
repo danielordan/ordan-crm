@@ -27,21 +27,44 @@
 
 ## 3. Technology Stack
 
-| שכבה | טכנולוגיה |
-|---|---|
-| Frontend | Next.js + React + TypeScript (App Router) |
-| Frontend server / BFF | Next.js Route Handlers + Middleware |
-| Backend | Node.js 24 LTS + NestJS + TypeScript |
-| Database | Supabase (PostgreSQL מנוהל). ה-Backend מתחבר ישירות עם `pg` (node-postgres) |
-| PDF Text Extraction | Mozilla PDF.js |
-| AI Extraction | OpenAI Responses API + Structured Outputs (מודל ברירת מחדל: GPT-5.4 mini) |
-| Email (התראות בלבד) | Amazon SES |
-| Frontend Hosting | Vercel |
-| Backend Hosting | AWS App Runner |
-| Backend Packaging | Docker, נבנה בענן (GitHub Actions → Amazon ECR) |
-| API Style | REST + JSON |
-| Authentication | Sign in with Google (OAuth 2.0 / OpenID Connect) דרך Auth.js ב-Next.js. אין סיסמאות במערכת |
-| Access protection | Session cookie של Auth.js, נבדק ב-Next.js Proxy + מפתח API בין Next.js ל-Backend |
+| שכבה | טכנולוגיה | תפקיד |
+|---|---|---|
+| Frontend | Next.js + React + TypeScript (App Router) | המסכים והניווט בדפדפן |
+| Frontend server / BFF | Next.js Route Handlers + Proxy | בדיקת כניסה והעברת בקשות ל-Backend עם מפתח API |
+| Backend | Node.js 24 LTS + NestJS + TypeScript | הלוגיקה העסקית ועיבוד המסמכים |
+| Database | Supabase (PostgreSQL מנוהל). ה-Backend מתחבר ישירות עם `pg` (node-postgres) | שמירת הלקוחות והמשתמשים |
+| PDF Text Extraction | Mozilla PDF.js | חילוץ הטקסט מה-PDF |
+| AI Extraction | OpenAI Responses API + Structured Outputs (מודל ברירת מחדל: GPT-5.4 mini) | הפיכת הטקסט לשדות מובנים |
+| Email (התראות בלבד) | Amazon SES | שליחת התראות Manual Review למשתמש |
+| Hosting (Frontend ו-Backend) | Vercel: שני Projects מאותו Repository | הרצת האפליקציה ופריסה אוטומטית מ-GitHub |
+| Source Control | Git Repository ב-GitHub | ניהול הקוד והפעלת הפריסה |
+| API Style | REST + JSON | התקשורת בין ה-Frontend server ל-Backend |
+| Authentication | Sign in with Google (OAuth 2.0 / OpenID Connect) דרך Auth.js ב-Next.js. אין סיסמאות במערכת | זיהוי המשתמשים |
+| Access protection | Session cookie של Auth.js, נבדק ב-Next.js Proxy + מפתח API בין Next.js ל-Backend | חסימת גישה ללא כניסה או ללא מפתח |
+
+### 3.1 נימוקים להחלטות המרכזיות
+
+- **Vercel ל-Frontend ול-Backend:** הוא תומך ב-Next.js וב-NestJS ישירות מ-GitHub, בלי Docker ובלי תשתית AWS לאירוח. מגבלות הזמן והגודל שלו מתאימות לדרישות המוצר (סעיפים 5.3 ו-7.5). ראו ADR-24.
+- **Supabase:** PostgreSQL מנוהל, שמתאים לנתונים טבלאיים, לחיפוש ולמניעת כפילויות. ה-PRD ממליץ על MongoDB אבל לא מחייב אותו, ואין הצדקה טכנית ל-NoSQL במוצר הזה (ADR-19).
+- **PDF.js ואז OpenAI:** חילוץ הטקסט פשוט וזול, והמודל מחזיר רק נתונים לפי Schema. הכללים העסקיים נשארים בקוד (ADR-3, ADR-4).
+- **Amazon SES:** מתאים להתראות לכתובת מאומתת אחת. מגבלות ה-Sandbox (200 הודעות ביממה) מספיקות לשימוש הזה (סעיף 14).
+- **Auth.js עם Google:** כניסה בלי לשמור סיסמאות במערכת, כפי שה-PRD דורש (ADR-18).
+- **Modular Monolith אחד:** מתאים למוצר קטן עם תהליך מרכזי אחד (ADR-1).
+
+### 3.2 סיכונים ומגבלות
+
+| נושא | המשמעות | מה עושים |
+|---|---|---|
+| תוכנית Hobby של Vercel | מיועדת לשימוש אישי לא מסחרי בלבד | שימוש של החברה דורש Pro או Enterprise. סוג התוכנית הוא החלטה עסקית של המשתמש |
+| השהיית Supabase בתוכנית החינמית | פרויקט עם פעילות נמוכה במשך שבוע מושהה, והאתר לא יקבל נתונים עד הפעלה מחדש | סעיף 15.4 |
+| אין גיבוי אוטומטי בתוכנית החינמית של Supabase | נתונים שאבדו או נמחקו לא ניתנים לשחזור | מדיניות הגיבוי פתוחה ב-PRD. תוכנית Pro כוללת גיבוי יומי לשבעה ימים |
+| מגבלת 4.5 MB בבקשה ל-Vercel Function | קובץ גדול יותר נחסם | מגבלת הקובץ במוצר היא 4 MB |
+| Backend כ-Function | אין תהליך שרץ ברקע, ואין שמירה לדיסק | העיבוד סינכרוני וה-PDF נשאר בזיכרון, ולכן זה מתאים |
+| חיבורי Database מ-Functions | כמה מופעים במקביל עלולים לנצל את כל החיבורים | Pool קטן, ראו סעיף 15.2. מתאים לשימוש פנימי בהיקף קטן |
+| Rate limiting בזיכרון של כל מופע | המגבלה אינה מדויקת כשיש כמה מופעים | מקובל לשימוש הזה. ההגנה העיקרית היא מפתח ה-API |
+| שמירת Logs ב-Vercel | שעה אחת ב-Hobby ויום אחד ב-Pro | מספיק לתקלות שוטפות. למעקב KPI ארוך טווח יידרש פתרון נוסף (סעיף 18.1) |
+| `next-auth` בגרסת beta | שינויים אפשריים בין גרסאות | גרסה קבועה, ועדכון נבדק בנפרד (ADR-22) |
+| שליחת מסמכים ל-OpenAI | תוכן המסמכים נשלח לספק חיצוני | מדיניות שמירת הנתונים של הספק פתוחה ב-PRD, וצריך לבדוק אותה לפני שימוש בנתונים אמיתיים |
 
 ---
 
@@ -64,7 +87,7 @@
                   │ HTTPS + X-API-Key (server-to-server)
                   ▼
 ┌─────────────────────────────────────┐
-│     NestJS Backend / App Runner     │
+│     NestJS Backend on Vercel        │
 │  Clients Module                     │
 │  Users Module                       │
 │  Documents Module                   │
@@ -121,7 +144,7 @@
 ```
 
 - ה-Route של ההעלאה מגדיר `maxDuration` שגבוה מזמן העיבוד המקסימלי של ה-Backend (ראה סעיף 7.5).
-- מגבלת גוף הבקשה של Vercel Functions היא כ-4.5 MB, ולכן מגבלת הקובץ במוצר היא 4 MB.
+- מגבלת גוף הבקשה של Vercel Functions היא 4.5 MB, והיא חלה גם על ה-Frontend וגם על ה-Backend. לכן מגבלת הקובץ במוצר היא 4 MB.
 
 ### 5.4 Upload PDF
 
@@ -135,7 +158,7 @@
 
 ### 6.1 סגנון
 
-ה-Backend הוא **Modular Monolith** אחד ב-NestJS, שרץ כ-Docker container ב-AWS App Runner.
+ה-Backend הוא **Modular Monolith** אחד ב-NestJS, שרץ ב-Vercel כ-Vercel Function אחת.
 
 ### 6.2 Modules
 
@@ -235,7 +258,7 @@ return { result: "created", processingStatus, clientId, notificationSent }
 
 ### 7.5 זמני עיבוד
 - Timeout לקריאה ל-OpenAI: `OPENAI_TIMEOUT_MS = 60000`. חריגה ממנו נחשבת ככשל חילוץ.
-- זמן העיבוד הכולל צריך להישאר מתחת למגבלת הבקשה של App Runner (120 שניות), ומתחת ל-`maxDuration` של ה-Route ב-Vercel.
+- `maxDuration` של ה-Backend הוא 120 שניות, ושל Route ההעלאה ב-Frontend הוא 130 שניות, כדי שה-Frontend יקבל תמיד את תשובת ה-Backend. שני הערכים מתחת למקסימום של Vercel (300 שניות ב-Hobby).
 
 ---
 
@@ -439,7 +462,7 @@ clients (processing_status, date_added DESC, id DESC)
 - רצים בפקודה אחת על ה-Database שמוגדר ב-`DATABASE_URL`. כל migration רץ בתוך transaction ונרשם ב-`schema_migrations`, כך שהרצה חוזרת היא idempotent.
 - ה-Migrations יוצרים את הטבלאות (`clients`, `users`), את ה-Indexes ואת הפעלת ה-RLS.
 - לא משתמשים ב-Supabase CLI (הוא דורש Docker לחלק מהפעולות).
-- **סביבת Production:** Migrations רצות עליה רק באישור מפורש של המשתמש, לפי MILESTONES.md.
+- **סביבת Production:** Migrations רצות עליה רק באישור מפורש של המשתמש, לפי הנוהל בסעיף 21.
 
 ---
 
@@ -481,7 +504,7 @@ PATCH /api/v1/clients/:id
 
 Editable fields: `companyName`, `address`, `phone`, `email`, `originPort`, `originCountry`, `destinationPort`, `incoterms`, `shipmentType`.
 
-- אין ולידציה של פורמט, מלבד ש-`shipmentType` חייב להיות `FCL`, `LCL` או `null`.
+- אין ולידציה של פורמט, מלבד ש-`shipmentType` חייב להיות `FCL`, `LCL` או `null`, ומלבד בדיקה בסיסית של `email` ו-`phone` כשהערך שונה (ADR-27). ערך לא תקין מחזיר `400`.
 - ה-Backend מעדכן את השדות המנורמלים ומחשב מחדש את `processingStatus` ואת `errorDetails` (סעיף 9.1).
 - כפילות מחזירה `409` עם `{ "error": "DUPLICATE_CLIENT" }`.
 
@@ -530,7 +553,7 @@ Content-Type: application/json
 GET /health
 ```
 
-health check בסיסי ל-App Runner. לא דורש מפתח API, ולא בודק שירותים חיצוניים.
+health check בסיסי לבדיקה שה-Backend זמין אחרי פריסה. לא דורש מפתח API, ולא בודק שירותים חיצוניים.
 
 ---
 
@@ -546,24 +569,39 @@ health check בסיסי ל-App Runner. לא דורש מפתח API, ולא בוד
 - מאחר שהמייל נשלח רק לכתובת מאומתת אחת, **SES נשאר ב-Sandbox** בשתי הסביבות. אין צורך בבקשת Production access.
 - יש לאמת את `SES_FROM_ADDRESS` ואת `ADMIN_REVIEW_EMAIL`.
 - ההודעה נשלחת כ-raw MIME עם ה-PDF כ-attachment.
+- ה-Backend מתחבר ל-SES עם IAM user נפרד לכל סביבה, בעל הרשאת `ses:SendRawEmail` בלבד (סעיף 16.3).
 
 ---
 
 ## 15. Cloud Infrastructure
 
-### 15.1 Frontend — Vercel
-- Next.js deployed ל-Vercel.
+### 15.1 Frontend — Vercel Project
+- Next.js deployed ל-Vercel Project נפרד, עם Root Directory `frontend`.
 - משתני סביבה בצד השרת בלבד: `BACKEND_API_URL`, `BACKEND_API_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`.
-- ⚠️ תוכנית Hobby של Vercel מיועדת לשימוש לא מסחרי. לשימוש של חברה נדרשת כנראה תוכנית Pro.
+- ⚠️ תוכנית Hobby של Vercel מיועדת לשימוש אישי לא מסחרי בלבד. שימוש של חברה דורש תוכנית Pro או Enterprise.
 
-### 15.2 Backend — AWS App Runner
-- NestJS רץ בתוך Docker container.
-- ה-image נבנה ב-**GitHub Actions** ונדחף ל-**Amazon ECR**. App Runner מבצע deploy מ-ECR.
-- App Runner מקבל CPU/Memory configuration, Environment variables, IAM instance role עם הרשאת `ses:SendRawEmail` בלבד, Health check ל-`/health` ו-HTTPS endpoint.
-- אין צורך ב-Docker על מחשב המפתח.
+### 15.2 Backend — Vercel Project
+- NestJS deployed ל-Vercel Project נפרד, עם Root Directory `backend`. Vercel מזהה את NestJS ואת `src/main.ts` בלי הגדרות מיוחדות, והאפליקציה רצה כ-Vercel Function אחת.
+- הכתובת של ה-Backend ציבורית, אבל כל `/api/v1/*` מוגן במפתח API. CORS נשאר כבוי.
+- ההגדרות נשמרות ב-`backend/vercel.json`: `maxDuration` (סעיף 7.5), ו-`includeFiles` עבור `certs/supabase-ca.crt`, כי ה-Backend קורא את הקובץ מהדיסק בזמן ריצה. נבדק בפריסה הראשונה.
+- גרסת Node.js ננעלת ל-`24.x` בשדה `engines` של כל `package.json`. הערך הנוכחי `>=24` יגרום ל-Vercel לבחור בגרסה החדשה ביותר.
+- **חיבור ל-Database:** דרך ה-Session pooler, בדיוק כמו ב-Development, עם Pool קטן לכל מופע.
+- Supabase ממליץ ל-Functions על Transaction pooler (פורט 6543), אבל ה-Backend מגדיר `search_path` ברמת החיבור, וה-Migrations משתמשים ב-advisory lock. שניהם תלויים בחיבור קבוע, ולכן Session pooler מתאים יותר בהיקף השימוש הצפוי. אם החיבורים ייגמרו בפועל, יעברו ל-Transaction pooler ויסירו את התלות ב-`search_path` בזמן ריצה.
 
 ### 15.3 Regions
-Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Supabase Projects ממוקמים באותו Region או קרוב אליו ככל האפשר.
+הפרויקטים ב-Vercel מוגדרים ל-Region הקרוב ביותר ל-Supabase Project של אותה סביבה, במקום ברירת המחדל `iad1`. כך מתקצר הזמן של כל פנייה ל-Database. SES ממוקם באותו Region או קרוב אליו ככל האפשר.
+
+### 15.4 מגבלות תוכנית Supabase
+
+בדיקה עדכנית של התוכנית החינמית (Free), בשפה פשוטה:
+
+- **מספר פרויקטים:** עד 2 פרויקטים פעילים. זה מספיק בדיוק ל-`ordan-dev` ול-`ordan-prod`.
+- **השהיה:** פרויקט שהיו בו מעט פעולות במשך שבוע מושהה אוטומטית, והאתר לא יכול לקרוא ממנו נתונים. הנתונים לא נמחקים. מפעילים אותו מחדש בלחיצה על **Resume project** בלוח הבקרה של Supabase, ואפשר לעשות זאת עד שנה אחרי ההשהיה.
+- **גודל:** עד 500 MB לכל פרויקט. זה מספיק, כי נשמרות רק רשומות טקסט ולא קובצי PDF.
+- **גיבוי:** אין גיבוי אוטומטי.
+- **תוכנית Pro:** החל מ-25 דולר בחודש. הפרויקטים לא מושהים, ויש גיבוי אוטומטי שנשמר 7 ימים.
+
+**המשמעות לפרויקט:** לפני הדגמה יש לוודא בלוח הבקרה ששני הפרויקטים פעילים. כשיישמרו נתונים אמיתיים ב-Production, כדאי לשקול Pro בגלל הגיבוי ומניעת ההשהיה. זו החלטה עסקית של המשתמש.
 
 ---
 
@@ -584,8 +622,8 @@ Region אחד ב-AWS שבו זמינים App Runner ו-SES. ה-Supabase Projects
 
 ### 16.3 Secrets
 - Secrets לא נכנסים ל-Git.
-- ב-AWS מעדיפים IAM role על פני static access keys.
-- ה-credentials של GitHub Actions ל-ECR נשמרים כ-GitHub Secrets.
+- מפתחות ה-IAM user של SES נשמרים כמשתני סביבה מסוג Secret ב-Vercel. בפיתוח המקומי משתמשים ב-IAM user נפרד, שנשמר ב-`.env`.
+- מיקום פרטי הגישה של כל סביבה מפורט בסעיף 20.
 
 ### 16.4 File Validation
 ה-Backend מוודא שהתקבל קובץ יחיד, שהוא PDF לפי MIME ו-magic bytes, ושגודלו לא עולה על `MAX_UPLOAD_BYTES` (4 MB). כשל parsing מטופל בצורה בטוחה.
@@ -647,7 +685,7 @@ Missing required fields: Email, Incoterms.
 - Structured JSON logs.
 - אירועים: `document_received`, `pdf_text_extracted`, `ai_extraction_completed`, `extraction_failed`, `duplicate_detected`, `client_created`, `manual_review_sent`, `notification_send_failed`.
 - אין לשמור באירועים את תוכן המסמך.
-- Logs נאספים ב-CloudWatch דרך App Runner.
+- Logs זמינים ב-Runtime Logs של Vercel. הם נשמרים שעה אחת ב-Hobby ויום אחד ב-Pro.
 
 ### 18.1 Processing Outcome ו-KPI
 כל העלאה רושמת אירוע `processing_outcome` עם אחד מהערכים הבאים:
@@ -662,7 +700,7 @@ TECHNICAL_FAILURE   → unexpected error
 
 `KPI = AUTO_SUCCESS ÷ (total − DUPLICATE_SKIPPED)`
 
-הערכים האלה לא נשמרים ברשומת הלקוח ולא מוצגים ב-UI.
+הערכים האלה לא נשמרים ברשומת הלקוח ולא מוצגים ב-UI. בגלל זמן השמירה הקצר של ה-Logs, ה-KPI ניתן לבדיקה בעיקר בבדיקות יזומות. מדידה רציפה לאורך זמן תדרוש פתרון נוסף, שאינו חלק מהמסמך הזה.
 
 ---
 
@@ -677,6 +715,8 @@ OPENAI_MODEL
 OPENAI_EXTRACTION_PROMPT_VERSION
 OPENAI_TIMEOUT_MS=60000
 AWS_REGION
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
 SES_FROM_ADDRESS
 ADMIN_REVIEW_EMAIL
 BACKEND_API_KEY
@@ -705,28 +745,65 @@ AUTH_GOOGLE_SECRET
 | Supabase | Project נפרד (`ordan-dev`) | Project נפרד (`ordan-prod`) |
 | SES | identities מאומתים (Sandbox) | identities מאומתים (Sandbox) |
 | OpenAI | key נפרד | key נפרד |
-| Frontend / Backend | הרצה מקומית | Vercel / App Runner |
+| AWS IAM user ל-SES | user נפרד | user נפרד |
+| Frontend / Backend | הרצה מקומית | שני Projects ב-Vercel |
 | Google OAuth Client | Client נפרד, redirect ל-`localhost` | Client נפרד, redirect לכתובת Production |
 | `BACKEND_API_KEY`, `AUTH_SECRET` | ערכים מקומיים | ערכים נפרדים וחזקים |
 
-הקובץ `.env` המקומי מכיל את פרטי ה-Development בלבד. אין להשתמש בנתוני Production לצורך פיתוח.
+### 20.1 היכן נשמרים פרטי הגישה
+
+| פרטים | היכן נשמרים |
+|---|---|
+| **Development** | בקובצי `.env` המקומיים בלבד (`backend/.env`, `frontend/.env`), שאינם נכנסים ל-Git |
+| **Production** | במשתני הסביבה של שירות ה-Hosting בלבד: Project ה-Backend מקבל את פרטי ה-Backend, ו-Project ה-Frontend את פרטי ה-Frontend (סעיף 19). הערכים הסודיים מוגדרים כ-Secret, ומוגבלים לסביבת Production של Vercel |
+
+- הסביבה המקומית מחוברת ל-Development בלבד. אין להשתמש בנתוני Production לצורך פיתוח.
+- הסיסמה של Database ב-Production נשמרת אצל המשתמש, במנהל הסיסמאות האישי שלו, ולא בקובץ בפרויקט. היא נדרשת רק לנוהל ה-Migrations שבסעיף 21.
+- Preview deployments של Vercel לא מקבלים פרטי Production. בלי ההגדרות האלה ה-Backend לא עולה, ולכן גרסת Preview לא יכולה לגשת לנתונים האמיתיים.
+
+### 20.2 הגדרות שלא עוברות ב-Migrations
+
+Migrations מעבירים רק את מבנה הטבלאות, ה-Indexes וה-RLS. את ההגדרות הבאות מגדירים בנפרד בכל סביבה:
+
+| הגדרה | היכן |
+|---|---|
+| סיסמת ה-Database וה-Connection String | Supabase, בכל Project בנפרד |
+| Region ותוכנית התשלום | Supabase, בכל Project בנפרד |
+| Google OAuth Client ו-Redirect URL | Google Cloud, בכל סביבה בנפרד |
+| Secrets ומשתני סביבה (`DATABASE_URL`, `OPENAI_API_KEY`, `BACKEND_API_KEY`, `AUTH_SECRET` ועוד) | `.env` ב-Development, Vercel ב-Production |
+| SES identities ו-IAM user | AWS |
+
+**Supabase Auth ו-Supabase Storage לא בשימוש** (סעיפים 7.2 ו-11.1), ולכן אין צורך להגדיר אותם באף Project.
 
 ---
 
 ## 21. Deployment Model
 
+הקוד מנוהל ב-Git Repository אחד ב-GitHub, עם שני Projects ב-Vercel שמחוברים אליו. כל Push ל-`main` מפעיל פריסה אוטומטית, ו-Vercel מדלג על Project שהקוד שלו לא השתנה. אין צורך ב-Docker או ב-GitHub Actions.
+
 ### Frontend
 ```text
-GitHub → Vercel build → Next.js production deployment
+Push to main (GitHub) → Vercel build (Root Directory: frontend) → Production deployment
 ```
 
 ### Backend
 ```text
-GitHub → GitHub Actions (docker build) → Amazon ECR → AWS App Runner
+Push to main (GitHub) → Vercel build (Root Directory: backend) → Production deployment
 ```
 
-### Database
-לפני deploy שמשנה את מבנה הנתונים, מריצים את ה-Migrations על Production, באישור מפורש של המשתמש.
+שני ה-Projects נפרסים בנפרד, ולכן ייתכן פער קצר ביניהם. שינוי ב-API צריך להיות תואם לגרסה הקודמת של הצד השני.
+
+### Database: נוהל Migrations בין הסביבות
+
+1. **Development:** כל שינוי נכתב כ-Migration, רץ ונבדק על Development.
+2. **לפני Push:** אם יש Migration שלא רץ על Production, Claude עוצר ומבקש את אישור המשתמש. הקוד עדיין לא נדחף, ולכן עדיין לא נפרסה גרסה שתלויה בשינוי.
+3. **הרצה על Production:** אחרי האישור, Claude מפעיל את פקודת ה-Migration בטרמינל של המשתמש. המשתמש מעתיק את ה-Connection String של ה-Session pooler של Production מלוח הבקרה של Supabase, ומדביק אותו בשדה נסתר. הערך לא נכתב לקובץ, לא נשמר במחשב ולא מוצג ל-Claude.
+4. **בדיקה:** מוודאים שה-Migration הסתיים בהצלחה.
+5. **Push:** רק עכשיו דוחפים ל-GitHub, ו-Vercel פורס את הגרסה החדשה.
+
+- הסדר הזה מבטיח שפריסה לא תקדים את עדכון מסד הנתונים שלה.
+- מאחר שבין שלב 3 לשלב 5 הגרסה הישנה עדיין רצה, Migration צריך להיות תואם גם אליה. שינוי שובר, כמו מחיקת עמודה, מתבצע בשני שלבים נפרדים.
+- לא מריצים Migrations אוטומטית בזמן Build, כדי שכל שינוי ב-Production יעבור דרך אישור של המשתמש.
 
 ---
 
@@ -788,6 +865,34 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 
 ---
 
+## 26. מקורות
+
+המקורות נבדקו בנובמבר 2026.
+
+**Hosting**
+- [NestJS on Vercel](https://vercel.com/docs/frameworks/backend/nestjs)
+- [Vercel Functions Limits](https://vercel.com/docs/functions/limitations)
+- [Vercel: Using Monorepos](https://vercel.com/docs/monorepos)
+- [Vercel: Supported Node.js versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)
+- [Vercel: Commercial usage ב-Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines)
+- [Vercel: Runtime Logs](https://vercel.com/docs/logs/runtime)
+- [Vercel: Reserved environment variables](https://vercel.com/docs/environment-variables/reserved-environment-variables)
+- [AWS App Runner availability change](https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html)
+
+**Database**
+- [Supabase Pricing](https://supabase.com/pricing)
+- [Supabase: Project Pausing](https://supabase.com/docs/guides/platform/free-project-pausing)
+- [Supabase: Connect to your database](https://supabase.com/docs/guides/database/connecting-to-postgres)
+- [Supabase: Supavisor FAQ](https://supabase.com/docs/guides/troubleshooting/supavisor-faq-YyP5tI)
+
+**שירותים נוספים**
+- [OpenAI: Structured model outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [OpenAI: GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
+- [Amazon SES sandbox](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)
+- [Auth.js: Google provider](https://authjs.dev/getting-started/providers/google)
+
+---
+
 ## החלטות מרכזיות (ADRs)
 
 ### ADR-1: Modular Monolith
@@ -840,7 +945,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **החלטה:** אין מייל שיווקי ואין Email Status. SES משמש להתראות למשתמש בלבד, ונשאר ב-Sandbox.
 **השלכות:** Processing Status הוא הסטטוס היחיד. הוספת מייל שיווקי בעתיד תחייב הרחבה של מודל הנתונים ושל ה-PRD.
 
-### ADR-11: Docker נבנה בענן
+### ADR-11: Docker נבנה בענן (הוחלפה ב-ADR-24)
 **הקשר:** המשתמש אינו מתכנת, ואין להתקין Docker מקומית.
 **החלטה:** GitHub Actions בונה את ה-image ודוחף ל-ECR.
 **השלכות:** הפיתוח המקומי רץ ב-Node.js בלבד. ה-Dockerfile נבדק לראשונה בזמן הפריסה.
@@ -848,7 +953,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 ### ADR-12: npm workspaces עם פקודת הרצה אחת
 **הקשר:** שתי אפליקציות (Frontend ו-Backend) ב-Repository אחד, ומשתמש שאינו מתכנת צריך להתקין ולהריץ בקלות.
 **החלטה:** npm workspaces בשורש (`frontend`, `backend`), עם `npm install` אחד ו-`npm run dev` שמריץ את שתיהן במקביל באמצעות `concurrently`. Prettier משותף בשורש.
-**השלכות:** קובץ `package-lock.json` אחד. כל אפליקציה שומרת `package.json` משלה, כך שהבנייה בענן (Vercel, Docker) יכולה לעבוד על כל אחת בנפרד.
+**השלכות:** קובץ `package-lock.json` אחד. כל אפליקציה שומרת `package.json` משלה, כך שהבנייה ב-Vercel יכולה לעבוד על כל אחת בנפרד.
 
 ### ADR-13: NestJS 11 ו-TypeScript 6
 **הקשר:** NestJS 12 יצא לאחרונה, והוא ESM-only. TypeScript 7 אינו נתמך עדיין ב-ts-jest.
@@ -867,17 +972,17 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 
 ### ADR-16: Logging, Config ו-Rate limiting ב-Backend
 **הקשר:** ARCHITECTURE סעיפים 16, 18 ו-19.
-**החלטה:** `nestjs-pino` ל-JSON logs עם Request ID (`X-Request-Id`, נוצר אם חסר) ו-redaction של `X-API-Key`, `Authorization` ו-`Cookie`. ולידציה של משתני הסביבה עם `zod`: משתנים של Milestones עתידיים אופציונליים עד שהם נדרשים. Rate limiting עם `@nestjs/throttler`: 300 בקשות לדקה, לפני בדיקת המפתח, ו-`/health` פטור.
+**החלטה:** `nestjs-pino` ל-JSON logs עם Request ID (`X-Request-Id`, נוצר אם חסר) ו-redaction של `X-API-Key`, `Authorization` ו-`Cookie`. ולידציה של משתני הסביבה עם `zod`: משתנים של יכולות שעדיין לא נבנו אופציונליים עד שהם נדרשים. Rate limiting עם `@nestjs/throttler`: 300 בקשות לדקה, לפני בדיקת המפתח, ו-`/health` פטור.
 **השלכות:** Backend לא עולה כשההגדרות לא תקינות, וההודעה מציינת שמות משתנים בלבד. מאחר שכל הבקשות מגיעות משרת ה-Next.js, ה-Rate limit הוא בפועל מגבלה כוללת.
 
 ### ADR-17: Endpoint בדיקה זמני ודף תצוגת רכיבים
-**הקשר:** ב-Milestone 1 אין עדיין endpoints עסקיים, וצריך לבדוק את ה-Proxy ואת ה-Design System.
-**החלטה:** `GET /api/v1/ping` ב-Backend ו-`GET /api/ping` ב-Frontend לבדיקת ה-Proxy, ויוסרו ב-Milestone 2. דף `/dev/components` מציג את הרכיבים ומחזיר 404 ב-Production.
+**הקשר:** בשלב ההקמה עדיין לא היו endpoints עסקיים, והיה צריך לבדוק את ה-Proxy ואת ה-Design System.
+**החלטה:** `GET /api/v1/ping` ב-Backend ו-`GET /api/ping` ב-Frontend לבדיקת ה-Proxy, עד שנוספו endpoints עסקיים. דף `/dev/components` מציג את הרכיבים ומחזיר 404 ב-Production.
 **השלכות:** אין השפעה על המוצר.
 
 ### ADR-18: Sign in with Google במקום סיסמה משותפת
 **הקשר:** המשתמש החליט שהכניסה תהיה עם Google בלבד, שהמערכת לא תשמור שמות משתמש וסיסמאות, ושכל מי שנרשם עם Google (כולל מרצה הקורס) יוכל להיכנס. נדרשת טבלה של המשתמשים שנרשמו.
-**החלטה:** Auth.js ב-Next.js עם Google provider ו-session cookie מוצפן (JWT). בכניסה, ה-Next.js server קורא ל-Backend כדי לבצע upsert לטבלה חדשה `users`, כך שה-Frontend לא ניגש ל-Database ישירות (סעיף 5.1). Basic Auth ו-`SITE_PASSWORD` מוסרים. נבנה ב-Milestone 2, יחד עם הקמת ה-Database; עד אז Basic Auth מ-Milestone 1 נשאר כהגנה זמנית.
+**החלטה:** Auth.js ב-Next.js עם Google provider ו-session cookie מוצפן (JWT). בכניסה, ה-Next.js server קורא ל-Backend כדי לבצע upsert לטבלה חדשה `users`, כך שה-Frontend לא ניגש ל-Database ישירות (סעיף 5.1). Basic Auth ו-`SITE_PASSWORD` מוסרים.
 **השלכות:** נדרש OAuth Client ב-Google Cloud לכל סביבה. כל חשבון Google יכול להירשם ולצפות בנתונים. ה-OAuth consent screen צריך להיות במצב "In production" כדי שחשבונות שאינם Test users יוכלו להיכנס. מגבלה עתידית על מי נכנס תתבסס על טבלת `users`. ADR-7 מוחלף.
 
 ### ADR-19: Supabase (PostgreSQL) במקום MongoDB Atlas
@@ -891,7 +996,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **השלכות:** אין צורך לשמור פרטי Production על המחשב המקומי. מזהה Project אינו סוד.
 
 ### ADR-21: חיפוש טלפון מתאים לפורמט ישראלי
-**הקשר:** ב-MILESTONES נדרש ש-`03-555` ימצא `+972 3 555...`, אבל ההשוואה לפי ספרות בלבד לא מוצאת אותו (`03555` מול `9723555`). המשתמש החליט להתאים את החיפוש לפורמט הישראלי.
+**הקשר:** נדרש ש-`03-555` ימצא `+972 3 555...`, אבל ההשוואה לפי ספרות בלבד לא מוצאת אותו (`03555` מול `9723555`). המשתמש החליט להתאים את החיפוש לפורמט הישראלי.
 **החלטה:** חיפוש שנראה כמו מספר טלפון (רק ספרות, רווחים ו-`+-().`) נבדק מול `phone_digits`. אם הספרות מתחילות ב-`0`, נבדק גם אותו מספר עם `972` במקום ה-`0`. טקסט אחר (שם, מייל) לא נבדק מול הטלפון, כדי ש-`acme2024@x.com` לא ימצא כל טלפון שמכיל `2024`.
 **השלכות:** התנהגות שלא כתובה במפורש ב-PRD 4.2. מספרים זרים נמצאים לפי ספרות בלבד.
 
@@ -901,7 +1006,31 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **השלכות:** Auth.js v5 עדיין מסומן beta; עדכון גרסה ייבדק בנפרד. Basic Auth ו-`SITE_PASSWORD` הוסרו, וכך גם ה-endpoints הזמניים `ping` (ADR-17).
 
 ### ADR-23: כפתור Sign out בסרגל הניווט
-**הקשר:** ה-PRD לא מגדיר יציאה מהמערכת (TBD ב-MILESTONES). המשתמש החליט שיש צורך בכפתור.
+**הקשר:** ה-PRD לא מגדיר יציאה מהמערכת. המשתמש החליט שיש צורך בכפתור.
 **החלטה:** כפתור **Sign out** בתחתית סרגל הניווט, שמוחק את ה-session ומחזיר ל-Sign In.
 **השלכות:** תוספת לממשק שלא מופיעה ב-PRD/DESIGN.
 
+### ADR-24: Vercel גם ל-Backend, במקום AWS App Runner
+**הקשר:** AWS סגר את App Runner ללקוחות חדשים, ומפנה לקוחות חדשים ל-Amazon ECS Express Mode. ההנחיות לפרויקט מעדיפות Vercel גם ל-Frontend וגם ל-Backend, כשמגבלות הפלטפורמה מתאימות למוצר. Vercel תומך ב-NestJS בלי שינוי בקוד ההפעלה. מגבלת 4.5 MB מתאימה לקובץ של עד 4 MB, ומגבלת הזמן של 300 שניות גבוהה מזמן העיבוד הנדרש.
+**החלטה:** שני Projects ב-Vercel מאותו Repository, עם Root Directory `frontend` ו-`backend`. ה-Backend נשאר NestJS נפרד, כדי לשמור על הקוד הקיים ועל ההפרדה שבעקרון 10. Docker, GitHub Actions, Amazon ECR ו-App Runner מוסרים. SES נשאר, ומתחבר עם IAM user בעל הרשאה יחידה. החיבור ל-Database נשאר דרך Session pooler (סעיף 15.2). Migrations ל-Production רצים לפי הנוהל בסעיף 21.
+**השלכות:** פריסה פשוטה יותר, בלי תשתית AWS לאירוח. ה-Backend לא שומר מצב בין בקשות, וה-Logs נשמרים לזמן קצר (סעיף 3.2). הפריסה הראשונה חייבת לוודא שקובץ ה-CA ו-PDF.js עובדים בסביבת Vercel. ADR-11 מוחלף.
+
+### ADR-25: `DuplicateDetectionService` ב-Clients Module
+**הקשר:** סעיף 6.2 ממקם את השירות ב-`processing/`. הוא משמש את העריכה ב-`ClientsModule`, וב-Milestone 4 `ProcessingModule` יזדקק ל-`ClientsModule` כדי ליצור לקוח. השארתו ב-`processing/` הייתה יוצרת תלות מעגלית בין שני ה-Modules.
+**החלטה:** השירות נמצא ב-`clients/duplicate-detection.service.ts`, ו-`ClientsModule` מייצא אותו.
+**השלכות:** הכיוון בין ה-Modules נשאר אחד: `ProcessingModule` תלוי ב-`ClientsModule`. הכללים עצמם לא השתנו (סעיף 9.3).
+
+### ADR-26: בדיקת כפילות בעריכה רק כשהשם או המייל השתנו
+**הקשר:** הכללים בסעיף 9.3 מאפשרים רשומה עם שם בלבד ורשומה עם אותו שם ועם מייל, זו לצד זו. בדיקה בכל שמירה הייתה חוסמת גם תיקון של טלפון ברשומה כזו. PRD 4.6 מדבר על עריכה **שיוצרת** כפילות.
+**החלטה:** ב-PATCH, בדיקת הכפילות רצה רק כשהערך המנורמל של השם או של המייל השתנה. הכללים נשארים אלה שבסעיף 9.3.
+**השלכות:** עריכה של שדות אחרים לעולם לא נחסמת. Duplicate שכבר קיים נשאר עד שהמשתמש משנה או מוחק אחת הרשומות.
+
+### ADR-27: בדיקת פורמט בסיסית למייל ולטלפון בעריכה
+**הקשר:** המשתמש החליט להוסיף בדיקת תקינות, אחרי שראה שאפשר לשמור מייל כמו `abc`. בעבר PRD 4.6 קבע שאין ולידציה של פורמט.
+**החלטה:** ב-PATCH נבדקים `email` ו-`phone`, רק כשהערך לא ריק ושונה מהערך השמור. הכללים פשוטים בכוונה: מייל בצורת `name@company.com`, וטלפון עם ספרות, `+`, `-`, רווחים וסוגריים, ו-7 ספרות לפחות. ה-Backend אוכף אותם (`common/validation/contact.ts`), וה-Frontend בודק אותם גם בעצמו (`lib/contact-validation.ts`) כדי להציג הודעה ליד השדה. הערך נשמר כפי שהוזן.
+**השלכות:** הכללים כתובים בשני מקומות, כי אין קוד משותף בין שתי האפליקציות, וצריך לשנות אותם יחד. ערך ישן לא נחסם, ולכן גם ערך שיחולץ מ-PDF ב-Milestone 4 לא יעצור תיקון של שדה אחר. Milestone 4 לא בודק פורמט בחילוץ: המערכת שומרת את מה שמופיע במסמך.
+
+### ADR-28: בדיקת מייל מחמירה וזיהוי טעויות הקלדה
+**הקשר:** המשתמש ראה ש-`name@gmail.co` עובר את הבדיקה של ADR-27, וביקש בדיקות נוספות למיילים.
+**החלטה:** הכללים של מייל מוחמרים, באותם תנאים של ADR-27 (רק ערך לא ריק ששונה): תווים מותרים, בלי נקודה בתחילה, בסוף או כפולה, דומיין תקין עם סיומת של 2 אותיות לפחות, ומגבלות אורך (64 תווים לפני ה-`@` ו-254 בסך הכול). בנוסף נחסמות טעויות הקלדה ידועות בדומיינים של ספקי מייל נפוצים (למשל `gmail.co`, `gmial.com`) וסיומות לא קיימות כמו `.con`, ובמסך מוצגת הצעה: `Did you mean name@gmail.com?`
+**השלכות:** הבדיקה לא מוודאת שהתיבה קיימת, ואין בדיקה מול שירות חיצוני. סיומת `.co` נחסמת רק בספקים שברשימה, כי חברות אמיתיות משתמשות בה. כתובות עם תווים שאינם באנגלית נחסמות. רשימת הטעויות כתובה ב-Backend וב-Frontend, וצריך לשנות אותה יחד.

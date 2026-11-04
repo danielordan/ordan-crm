@@ -15,7 +15,7 @@
 5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובץ `.env` מקומי, ולצדו קובץ `.env.example` ללא ערכים.
 6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**.
 7. **סביבת Production לא בשימוש עד Milestone 5.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–4. בהם ה-Push לא ממתין ל-Production. ב-Milestone 5 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
-8. אין צורך להתקין Docker על מחשב המשתמש. ה-Docker image נבנה בענן ב-Milestone 5.
+8. אין צורך להתקין Docker על מחשב המשתמש, ואין שימוש ב-Docker בפרויקט. הפריסה נעשית ישירות מ-GitHub ל-Vercel ב-Milestone 5.
 9. אין להוסיף פיצ'רים, מסכים או יכולות שלא מופיעים ב-PRD. בפרט: **אין מייל שיווקי ואין Email Status**.
 10. אם מתגלה סתירה בין המסמכים, יש לפעול לפי כללי הסתירות שב-`CLAUDE.md`. כשהם לא מכריעים, יש לעצור ולשאול.
 
@@ -142,7 +142,7 @@
 
 ---
 
-## Milestone 3 — Client Details, Edit & Delete
+## Milestone 3 — Client Details, Edit & Delete ✅
 
 ### שם ומטרה
 המשתמש צופה בכל פרטי הלקוח, עורך אותם, כולל פרטי המשלוח, ורואה את הסטטוס מחושב מחדש. בנוסף הוא יכול למחוק לקוח.
@@ -192,7 +192,7 @@
     - אימות ה-identity של תיבת המייל הייעודית (`SES_FROM_ADDRESS`).
     - אימות כתובת המשתמש (`ADMIN_REVIEW_EMAIL`).
     - SES נשאר ב-Sandbox.
-  - IAM user לפיתוח מקומי עם הרשאת `ses:SendRawEmail` בלבד.
+  - IAM user לפיתוח מקומי עם הרשאת `ses:SendRawEmail` בלבד. המפתחות שלו נשמרים ב-`backend/.env` (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), ומשתנים אלה נוספים ל-`.env.example` בלי ערכים.
 - **Database Migration**, אם נדרש שינוי ב-schema או ב-Indexes. ה-Migration רץ על Development.
 - **Backend:** `POST /api/v1/documents/process`, לפי ARCHITECTURE סעיפים 6.3, 7, 8, 9, 10 ו-12.2:
   - קובץ PDF יחיד עד 4 MB, עם ולידציה של MIME ו-magic bytes. הקובץ נשאר בזיכרון בלבד.
@@ -211,7 +211,7 @@
   - Processing indicator.
   - הודעות התוצאה לפי הטבלה ב-DESIGN.
   - **Try Again** בכשל טכני.
-  - Route ההעלאה ב-Proxy מגדיר `maxDuration` מתאים.
+  - Route ההעלאה ב-Proxy מגדיר `maxDuration` של 130 שניות (ARCHITECTURE סעיף 7.5).
 
 ### תוצר מצופה
 - המשתמש מעלה HBL אמיתי, והלקוח מופיע במסך Clients עם הפרטים והסטטוס הנכונים.
@@ -244,21 +244,26 @@
 פריסת המערכת לסביבת Production מאובטחת, ועדכון סביבת Production לכל השינויים שבוצעו עד כה.
 
 ### מה יש לממש
+- **הכנת הקוד לפריסה ב-Vercel** (ARCHITECTURE סעיף 15.2 ו-ADR-24):
+  - `backend/vercel.json`, עם `maxDuration` של 120 שניות ו-`includeFiles` עבור `certs/supabase-ca.crt`.
+  - נעילת גרסת Node.js ל-`24.x` בשדה `engines`.
+  - Pool קטן של חיבורי Database ב-Production.
+  - פקודת Migration ל-Production, שמבקשת את ה-Connection String בשדה נסתר ולא שומרת אותו (ARCHITECTURE סעיף 21).
+- **הרצת Migrations על Production**, לפי הנוהל ב-ARCHITECTURE סעיף 21: **כל ה-Database Migrations** רצים על Supabase Production, **באישור מפורש של המשתמש**, לפני ה-Push של הגרסה שתלויה בהם.
 - **הקמת שירותי Production.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  - **Supabase Production**, שהוקם ב-Milestone 2: הרצת **כל ה-Database Migrations** על Production, **באישור מפורש של המשתמש**.
+  - **Supabase Production**, שהוקם ב-Milestone 2: בדיקה שהפרויקט פעיל ולא מושהה.
   - **SES:** אימות ה-identities לשימוש ב-Production. הם נשארים ב-Sandbox.
+  - **IAM user ל-Production**, נפרד מזה של הפיתוח, עם הרשאת `ses:SendRawEmail` בלבד.
   - **OpenAI key** ל-Production.
-  - **GitHub Actions + Amazon ECR:**
-    - Dockerfile ל-Backend.
-    - Workflow שבונה את ה-image ודוחף אותו ל-ECR.
-    - AWS credentials מוגדרים כ-GitHub Secrets.
-  - **AWS App Runner:**
-    - deploy מ-ECR.
-    - IAM instance role עם הרשאת `ses:SendRawEmail` בלבד.
-    - Environment variables ו-Secrets.
-    - Health check ל-`/health`.
-  - **Google OAuth Production:** OAuth Client נפרד, עם redirect לכתובת ה-Production.
-  - **Vercel:** חיבור ה-Repository והגדרת `BACKEND_API_URL`, `BACKEND_API_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID` ו-`AUTH_GOOGLE_SECRET` עם ערכי Production. כדאי לבדוק מול המשתמש איזו תוכנית Vercel נדרשת לשימוש מסחרי.
+  - **Vercel, Project ל-Backend:**
+    - חיבור ה-Repository ב-GitHub, עם Root Directory `backend`.
+    - Region הקרוב ביותר ל-Supabase Production.
+    - הגדרת משתני הסביבה של ה-Backend (ARCHITECTURE סעיף 19) עם ערכי Production, כולל `DATABASE_URL` ומפתחות ה-IAM. הערכים הסודיים מוגדרים כ-Secret, ורק לסביבת Production של Vercel.
+  - **Vercel, Project ל-Frontend:**
+    - חיבור אותו Repository, עם Root Directory `frontend` ואותו Region.
+    - הגדרת `BACKEND_API_URL` (הכתובת של Project ה-Backend), `BACKEND_API_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID` ו-`AUTH_GOOGLE_SECRET` עם ערכי Production, רק לסביבת Production של Vercel.
+  - **Google OAuth Production:** OAuth Client נפרד, עם redirect לכתובת ה-Production של ה-Frontend.
+  - **תוכנית Vercel ותוכנית Supabase:** בדיקה מול המשתמש אם נדרשות תוכניות בתשלום (ARCHITECTURE סעיפים 3.2 ו-15.4). התוכנית החינמית של Vercel מיועדת לשימוש לא מסחרי בלבד.
 - **אבטחה לפי ARCHITECTURE סעיף 16:**
   - `AUTH_SECRET` ו-`BACKEND_API_KEY` חזקים ושונים מאלה של Development.
   - HTTPS בלבד.
@@ -271,14 +276,16 @@
 
 ### Definition of Done
 - [ ] כל ה-Migrations רצו בהצלחה על **Production**, באישור המשתמש, וה-Indexes קיימים.
-- [ ] GitHub Actions בונה את ה-image ודוחף אותו ל-ECR בהצלחה.
-- [ ] ה-Frontend ב-Vercel וה-Backend ב-App Runner זמינים ב-HTTPS, ו-`/health` מחזיר 200.
+- [ ] Push ל-`main` ב-GitHub מפעיל פריסה אוטומטית ב-Vercel, ושני ה-Projects נפרסים בהצלחה.
+- [ ] ה-Frontend וה-Backend זמינים ב-Vercel ב-HTTPS, ו-`/health` מחזיר 200.
+- [ ] ה-Backend מתחבר ל-Database עם אימות תעודה ב-Production, ו-PDF.js עובד בסביבת Vercel.
+- [ ] פרטי Production נשמרים רק ב-Vercel, ולא ב-Repository או בקובץ במחשב המשתמש. Preview deployments לא מקבלים פרטי Production.
 - [ ] האתר דורש כניסה עם Google, והכניסה עובדת ב-Production. ה-Backend מחזיר 401 לבקשה ישירה בלי מפתח API.
 - [ ] ה-Backend ב-Production מחובר רק לשירותי Production.
 - [ ] Smoke test: העלאת HBL תקין יוצרת לקוח עם `Success`.
 - [ ] Smoke test: מקרה Manual Review שולח התראה עם ה-PDF ל-`ADMIN_REVIEW_EMAIL`.
 - [ ] Clients, Client Details, Edit ו-Delete עובדים ב-Production.
-- [ ] Logs זמינים ב-CloudWatch, ללא תוכן PDF וללא Secrets.
+- [ ] Logs זמינים ב-Runtime Logs של Vercel, ללא תוכן PDF וללא Secrets.
 - [ ] ה-README מעודכן עם הוראות הפריסה וה-Migration.
 
 ---
@@ -295,5 +302,6 @@
 | זמינות מודל ה-AI שנבחר | לבדוק בתחילת Milestone 4 | 4 |
 | מדיניות שמירת הנתונים של OpenAI | לבדוק לפני שימוש עם נתונים אמיתיים | 4 |
 | תוכנית Vercel לשימוש מסחרי | עלות | 5 |
+| תוכנית Supabase ל-Production | עלות, גיבוי ומניעת השהיה | 5 |
 | בדיקה משפטית למייל שיווקי | לא משפיעה על ה-MVP. תנאי לגרסה עתידית | — |
 | מדיניות גיבוי | לא משפיעה על ה-MVP | — |

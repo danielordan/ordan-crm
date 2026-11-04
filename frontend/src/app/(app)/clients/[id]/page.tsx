@@ -1,3 +1,10 @@
-export default function ClientDetailsPage() {
-  return <h1 className="text-h1">Client Details</h1>;
+import { ClientDetailsView } from '@/components/clients/ClientDetailsView';
+
+interface ClientDetailsPageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default async function ClientDetailsPage({ params }: ClientDetailsPageProps) {
+  const { id } = await params;
+  return <ClientDetailsView key={id} id={id} />;
 }

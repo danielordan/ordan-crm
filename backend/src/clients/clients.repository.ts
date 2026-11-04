@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
 import { phoneToDigits } from '../common/text/normalize';
 import { DATABASE_POOL } from '../database/database.constants';
-import type { ClientListRow } from './client.types';
+import type { ClientListRow, ClientRow, ClientUpdate, DuplicateKeys } from './client.types';
 import { PAGE_SIZE, type ListClientsQuery } from './dto/list-clients.query';
 
 export interface SqlQuery {
@@ -67,6 +67,26 @@ export function buildListQuery(query: ListClientsQuery): SqlQuery {
   };
 }
 
+// Picks the duplicate rule by which values exist (ARCHITECTURE 9.3). Call with at least one key.
+export function buildDuplicateQuery(keys: DuplicateKeys, excludeId?: string): SqlQuery {
+  const values: unknown[] = [];
+  const conditions: string[] = [];
+  const add = (column: string, value: unknown, operator = '=') => {
+    values.push(value);
+    conditions.push(`${column} ${operator} $${values.length}`);
+  };
+
+  if (keys.companyName) add('company_name_normalized', keys.companyName);
+  if (keys.email) add('email_normalized', keys.email);
+  if (excludeId) add('id', excludeId, '<>');
+
+  return { text: `SELECT id FROM clients WHERE ${conditions.join(' AND ')} LIMIT 1`, values };
+}
+
+const CLIENT_COLUMNS = `id, company_name, company_name_normalized, address, phone, email,
+  email_normalized, origin_port, origin_country, destination_port, incoterms, shipment_type,
+  date_added, processing_status, error_details`;
+
 @Injectable()
 export class ClientsRepository {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
@@ -75,5 +95,66 @@ export class ClientsRepository {
     const { text, values } = buildListQuery(query);
     const { rows } = await this.pool.query<ClientListRow>(text, values);
     return rows;
+  }
+
+  async findById(id: string): Promise<ClientRow | null> {
+    const { rows } = await this.pool.query<ClientRow>(
+      `SELECT ${CLIENT_COLUMNS} FROM clients WHERE id = $1`,
+      [id],
+    );
+    return rows[0] ?? null;
+  }
+
+  async findDuplicateId(keys: DuplicateKeys, excludeId?: string): Promise<string | null> {
+    const { text, values } = buildDuplicateQuery(keys, excludeId);
+    const { rows } = await this.pool.query<{ id: string }>(text, values);
+    return rows[0]?.id ?? null;
+  }
+
+  // Returns null when the client no longer exists
+  async update(id: string, client: ClientUpdate): Promise<ClientRow | null> {
+    const { rows } = await this.pool.query<ClientRow>(
+      `UPDATE clients SET
+         company_name = $2,
+         company_name_normalized = $3,
+         address = $4,
+         phone = $5,
+         phone_digits = $6,
+         email = $7,
+         email_normalized = $8,
+         origin_port = $9,
+         origin_country = $10,
+         destination_port = $11,
+         incoterms = $12,
+         shipment_type = $13,
+         processing_status = $14,
+         error_details = $15
+       WHERE id = $1
+       RETURNING ${CLIENT_COLUMNS}`,
+      [
+        id,
+        client.companyName,
+        client.companyNameNormalized,
+        client.address,
+        client.phone,
+        client.phoneDigits,
+        client.email,
+        client.emailNormalized,
+        client.originPort,
+        client.originCountry,
+        client.destinationPort,
+        client.incoterms,
+        client.shipmentType,
+        client.processingStatus,
+        client.errorDetails,
+      ],
+    );
+    return rows[0] ?? null;
+  }
+
+  // Returns whether a client was deleted
+  async delete(id: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query('DELETE FROM clients WHERE id = $1', [id]);
+    return rowCount === 1;
   }
 }

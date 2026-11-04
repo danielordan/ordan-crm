@@ -17,3 +17,16 @@ const tableDate = new Intl.DateTimeFormat('en-US', {
 export function formatTableDate(iso: string): string {
   return tableDate.format(new Date(iso));
 }
+
+const detailsTime = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Jerusalem',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+// "Jul 20, 2026 14:32"
+export function formatDetailsDate(iso: string): string {
+  const date = new Date(iso);
+  return `${tableDate.format(date)} ${detailsTime.format(date)}`;
+}
