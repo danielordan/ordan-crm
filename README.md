@@ -42,7 +42,7 @@ The browser only talks to the frontend. Users sign in with Google; the frontend 
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
 
-   Other variables in `backend/.env` (OpenAI, AWS) are filled in later milestones.
+   The OpenAI variables in `backend/.env` are filled in Milestone 4.
 
 3. Accounts (one-time):
    - **Supabase:** two projects, `ordan-dev` (local development) and `ordan-prod` (production, Milestone 5). The database SSL certificate (Project Settings → Database → SSL Configuration → Download certificate) is stored in `backend/certs/supabase-ca.crt`; it is public, not a secret.

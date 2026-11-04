@@ -16,11 +16,11 @@
 2. **אמינות.** הלוגיקה העסקית הקריטית נשארת ב-Backend ולא מועברת למודל AI.
 3. **AI מוגבל לחילוץ מידע.** המודל מחזיר נתונים מובנים בלבד. הוא לא קובע אם לקוח הוא כפילות ואיזה Status לשמור.
 4. **No guessing.** מידע שלא מופיע במסמך מוחזר כחסר, ואין להמציא ערכים.
-5. **אין אחסון של קבצים.** ה-PDF קיים רק בזיכרון במהלך הבקשה, ומצורף להתראה כשצריך.
-6. **Managed services** עבור Database, Email ו-Hosting.
+5. **אין אחסון של קבצים.** ה-PDF קיים רק בזיכרון במהלך הבקשה.
+6. **Managed services** עבור Database ו-Hosting.
 7. **Single backend application.** ה-Backend הוא Modular Monolith.
 8. **TypeScript end-to-end** ב-Frontend וב-Backend.
-9. **Server-side business rules.** בדיקת כפילויות, חישוב סטטוסים וההחלטה על שליחת התראה מתבצעים בצד השרת.
+9. **Server-side business rules.** בדיקת כפילויות וחישוב סטטוסים מתבצעים בצד השרת.
 10. **Backend לא חשוף לדפדפן.** הדפדפן מדבר רק עם שרת ה-Next.js, והוא פונה ל-Backend בצד השרת עם מפתח API.
 
 ---
@@ -35,7 +35,6 @@
 | Database | Supabase (PostgreSQL מנוהל). ה-Backend מתחבר ישירות עם `pg` (node-postgres) | שמירת הלקוחות והמשתמשים |
 | PDF Text Extraction | Mozilla PDF.js | חילוץ הטקסט מה-PDF |
 | AI Extraction | OpenAI Responses API + Structured Outputs (מודל ברירת מחדל: GPT-5.4 mini) | הפיכת הטקסט לשדות מובנים |
-| Email (התראות בלבד) | Amazon SES | שליחת התראות Manual Review למשתמש |
 | Hosting (Frontend ו-Backend) | Vercel: שני Projects מאותו Repository | הרצת האפליקציה ופריסה אוטומטית מ-GitHub |
 | Source Control | Git Repository ב-GitHub | ניהול הקוד והפעלת הפריסה |
 | API Style | REST + JSON | התקשורת בין ה-Frontend server ל-Backend |
@@ -44,10 +43,9 @@
 
 ### 3.1 נימוקים להחלטות המרכזיות
 
-- **Vercel ל-Frontend ול-Backend:** הוא תומך ב-Next.js וב-NestJS ישירות מ-GitHub, בלי Docker ובלי תשתית AWS לאירוח. מגבלות הזמן והגודל שלו מתאימות לדרישות המוצר (סעיפים 5.3 ו-7.5). ראו ADR-24.
+- **Vercel ל-Frontend ול-Backend:** הוא תומך ב-Next.js וב-NestJS ישירות מ-GitHub, בלי Docker ובלי תשתית אירוח נוספת. מגבלות הזמן והגודל שלו מתאימות לדרישות המוצר (סעיפים 5.3 ו-7.5). ראו ADR-24.
 - **Supabase:** PostgreSQL מנוהל, שמתאים לנתונים טבלאיים, לחיפוש ולמניעת כפילויות. ה-PRD ממליץ על MongoDB אבל לא מחייב אותו, ואין הצדקה טכנית ל-NoSQL במוצר הזה (ADR-19).
 - **PDF.js ואז OpenAI:** חילוץ הטקסט פשוט וזול, והמודל מחזיר רק נתונים לפי Schema. הכללים העסקיים נשארים בקוד (ADR-3, ADR-4).
-- **Amazon SES:** מתאים להתראות לכתובת מאומתת אחת. מגבלות ה-Sandbox (200 הודעות ביממה) מספיקות לשימוש הזה (סעיף 14).
 - **Auth.js עם Google:** כניסה בלי לשמור סיסמאות במערכת, כפי שה-PRD דורש (ADR-18).
 - **Modular Monolith אחד:** מתאים למוצר קטן עם תהליך מרכזי אחד (ADR-1).
 
@@ -93,12 +91,10 @@
 │  Documents Module                   │
 │  Processing Module                  │
 │  Extraction Module                  │
-│  Notification Module                │
-└───────┬──────────┬──────────┬───────┘
-        ▼          ▼          ▼
-  Supabase       OpenAI    Amazon SES
+└───────┬──────────┬──────────────────┘
+        ▼          ▼
+  Supabase       OpenAI
   (PostgreSQL)
-                          (alerts to admin)
 ```
 
 ---
@@ -118,7 +114,7 @@
 
 ה-Frontend **לא**:
 - מחלץ מידע מה-PDF.
-- ניגש ישירות ל-OpenAI, ל-Database (Supabase) או ל-SES.
+- ניגש ישירות ל-OpenAI או ל-Database (Supabase).
 - מבצע Duplicate Detection או מחשב סטטוסים.
 - חושף משתני סביבה סודיים לדפדפן. אין שימוש ב-`NEXT_PUBLIC_*` עבור ערכים סודיים.
 
@@ -187,9 +183,6 @@ src/
 │   ├── ai-extraction.service.ts
 │   ├── extraction.schema.ts
 │   └── extraction-normalizer.service.ts
-├── notifications/
-│   ├── notification.service.ts
-│   └── manual-review.template.ts
 ├── migrations/
 ├── common/
 │   ├── guards/api-key.guard.ts
@@ -201,7 +194,7 @@ src/
 
 ### 6.3 Processing Orchestrator
 
-`ProcessingService` מנהל את ה-workflow. הוא לא מבצע בעצמו PDF parsing או שליחת מייל, אלא מתאם בין השירותים.
+`ProcessingService` מנהל את ה-workflow. הוא לא מבצע בעצמו PDF parsing, אלא מתאם בין השירותים.
 
 ```text
 receive PDF (in memory)
@@ -213,7 +206,6 @@ extract text (PDF.js)
 extract structured fields (OpenAI, timeout OPENAI_TIMEOUT_MS)
 ↓
 if text/AI failed or timed out:
-    send manual-review alert (reason + PDF)
     return { result: "extraction_failed" }
 ↓
 normalize fields (section 8.5)
@@ -226,9 +218,7 @@ compute processingStatus + errorDetails (section 9.1)
 ↓
 create client record
 ↓
-if Failed: send ONE manual-review alert (all missing fields + extracted data + PDF)
-↓
-return { result: "created", processingStatus, clientId, notificationSent }
+return { result: "created", processingStatus, clientId }
 ```
 
 ---
@@ -245,7 +235,6 @@ return { result: "created", processingStatus, clientId, notificationSent }
 
 ### 7.2 In-Memory Handling
 - הקובץ מתקבל כ-buffer בזיכרון ואינו נכתב לדיסק או לאחסון חיצוני.
-- כשנדרשת התראה, ה-buffer מצורף למייל.
 - בסיום הבקשה ה-buffer משתחרר. אין שמירה של הקובץ.
 
 ### 7.3 PDF.js
@@ -254,7 +243,7 @@ return { result: "created", processingStatus, clientId, notificationSent }
 ### 7.4 Failure
 אם PDF.js לא מצליח לחלץ טקסט שימושי:
 - לא יוצרים רשומה.
-- שולחים התראת Manual Review עם ה-PDF וסיבת הכשל.
+- ה-Response מחזיר `extraction_failed`, וה-UI מציג את ההודעה המתאימה מ-PRD 4.3.
 
 ### 7.5 זמני עיבוד
 - Timeout לקריאה ל-OpenAI: `OPENAI_TIMEOUT_MS = 60000`. חריגה ממנו נחשבת ככשל חילוץ.
@@ -343,7 +332,7 @@ otherwise            → processingStatus = Failed,  errorDetails = list of miss
 | email בלבד | `email_normalized` זהה |
 | אף אחד | אין בדיקה |
 
-**בהעלאה:** כשנמצאה כפילות, לא יוצרים רשומה ולא מעדכנים את הקיימת (כולל `dateAdded` ופרטי המשלוח), ולא שולחים התראה.
+**בהעלאה:** כשנמצאה כפילות, לא יוצרים רשומה ולא מעדכנים את הקיימת (כולל `dateAdded` ופרטי המשלוח).
 
 **בעריכה:** אותם כללים, מול כל הרשומות **מלבד** הרשומה הנערכת. כשנמצאה כפילות, מחזירים `409 Conflict` ולא שומרים.
 
@@ -359,28 +348,9 @@ phone_digits:            digits only (for search)
 
 ---
 
-## 10. Manual Review Notifications
+## 10. Manual Review
 
-### 10.1 מתי נשלחת התראה
-- רשומה נשמרה עם `processingStatus = Failed`.
-- כשל חילוץ מלא: PDF ללא טקסט, כשל AI או timeout.
-
-לא נשלחת התראה על הצלחה, על כפילות או על עריכה.
-
-### 10.2 תוכן
-- באנגלית, נשלחת מ-`SES_FROM_ADDRESS` ל-`ADMIN_REVIEW_EMAIL`.
-- **התראה אחת לכל קובץ.**
-- כוללת:
-  - את סיבת ההתראה: רשימת השדות החסרים, או סיבת הכשל.
-  - את כל השדות שחולצו.
-  - ציון אם נוצרה רשומה.
-  - את ה-PDF המקורי כקובץ מצורף.
-
-### 10.3 כשל בשליחה
-- אין retry עסקי.
-- הרשומה, אם נוצרה, נשארת כפי שהיא.
-- ה-Response מחזיר `notificationSent: false`, וה-UI מציג את ההודעה המתאימה מ-PRD 4.3.
-- נרשם operational error ב-log.
+מקרים שדורשים טיפול ידני מדווחים למשתמש במסך ההעלאה בלבד, לפי ה-Response (סעיף 12.2) וטבלת ההודעות ב-PRD 4.3. המערכת לא שולחת מיילים בגרסה זו (ADR-29).
 
 ---
 
@@ -524,9 +494,9 @@ Content-Type: multipart/form-data   (field: file)
 Responses:
 ```json
 { "result": "created", "processingStatus": "Success", "clientId": "..." }
-{ "result": "created", "processingStatus": "Failed", "clientId": "...", "notificationSent": true }
+{ "result": "created", "processingStatus": "Failed", "clientId": "..." }
 { "result": "duplicate" }
-{ "result": "extraction_failed", "notificationSent": true }
+{ "result": "extraction_failed" }
 ```
 
 שגיאות:
@@ -564,12 +534,8 @@ health check בסיסי לבדיקה שה-Backend זמין אחרי פריסה. 
 
 ---
 
-## 14. Amazon SES
-- משמש **רק** לשליחת התראות Manual Review למשתמש.
-- מאחר שהמייל נשלח רק לכתובת מאומתת אחת, **SES נשאר ב-Sandbox** בשתי הסביבות. אין צורך בבקשת Production access.
-- יש לאמת את `SES_FROM_ADDRESS` ואת `ADMIN_REVIEW_EMAIL`.
-- ההודעה נשלחת כ-raw MIME עם ה-PDF כ-attachment.
-- ה-Backend מתחבר ל-SES עם IAM user נפרד לכל סביבה, בעל הרשאת `ses:SendRawEmail` בלבד (סעיף 16.3).
+## 14. שליחת מיילים
+לא בגרסה זו. בשלב עתידי המיילים יישלחו דרך סוכן שמריץ קונקטור ל-Microsoft 365 (סעיף 25, ADR-29).
 
 ---
 
@@ -589,7 +555,7 @@ health check בסיסי לבדיקה שה-Backend זמין אחרי פריסה. 
 - Supabase ממליץ ל-Functions על Transaction pooler (פורט 6543), אבל ה-Backend מגדיר `search_path` ברמת החיבור, וה-Migrations משתמשים ב-advisory lock. שניהם תלויים בחיבור קבוע, ולכן Session pooler מתאים יותר בהיקף השימוש הצפוי. אם החיבורים ייגמרו בפועל, יעברו ל-Transaction pooler ויסירו את התלות ב-`search_path` בזמן ריצה.
 
 ### 15.3 Regions
-הפרויקטים ב-Vercel מוגדרים ל-Region הקרוב ביותר ל-Supabase Project של אותה סביבה, במקום ברירת המחדל `iad1`. כך מתקצר הזמן של כל פנייה ל-Database. SES ממוקם באותו Region או קרוב אליו ככל האפשר.
+הפרויקטים ב-Vercel מוגדרים ל-Region הקרוב ביותר ל-Supabase Project של אותה סביבה, במקום ברירת המחדל `iad1`. כך מתקצר הזמן של כל פנייה ל-Database.
 
 ### 15.4 מגבלות תוכנית Supabase
 
@@ -622,7 +588,6 @@ health check בסיסי לבדיקה שה-Backend זמין אחרי פריסה. 
 
 ### 16.3 Secrets
 - Secrets לא נכנסים ל-Git.
-- מפתחות ה-IAM user של SES נשמרים כמשתני סביבה מסוג Secret ב-Vercel. בפיתוח המקומי משתמשים ב-IAM user נפרד, שנשמר ב-`.env`.
 - מיקום פרטי הגישה של כל סביבה מפורט בסעיף 20.
 
 ### 16.4 File Validation
@@ -662,7 +627,6 @@ MISSING_DESTINATION_PORT
 MISSING_INCOTERMS
 MISSING_SHIPMENT_TYPE
 DUPLICATE_CLIENT
-NOTIFICATION_SEND_ERROR
 DATABASE_ERROR
 ```
 
@@ -683,7 +647,7 @@ Missing required fields: Email, Incoterms.
 ## 18. Observability
 
 - Structured JSON logs.
-- אירועים: `document_received`, `pdf_text_extracted`, `ai_extraction_completed`, `extraction_failed`, `duplicate_detected`, `client_created`, `manual_review_sent`, `notification_send_failed`.
+- אירועים: `document_received`, `pdf_text_extracted`, `ai_extraction_completed`, `extraction_failed`, `duplicate_detected`, `client_created`.
 - אין לשמור באירועים את תוכן המסמך.
 - Logs זמינים ב-Runtime Logs של Vercel. הם נשמרים שעה אחת ב-Hobby ויום אחד ב-Pro.
 
@@ -714,11 +678,6 @@ OPENAI_API_KEY
 OPENAI_MODEL
 OPENAI_EXTRACTION_PROMPT_VERSION
 OPENAI_TIMEOUT_MS=60000
-AWS_REGION
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-SES_FROM_ADDRESS
-ADMIN_REVIEW_EMAIL
 BACKEND_API_KEY
 MAX_UPLOAD_BYTES=4194304
 API_PORT
@@ -743,9 +702,7 @@ AUTH_GOOGLE_SECRET
 | רכיב | Development | Production |
 |---|---|---|
 | Supabase | Project נפרד (`ordan-dev`) | Project נפרד (`ordan-prod`) |
-| SES | identities מאומתים (Sandbox) | identities מאומתים (Sandbox) |
 | OpenAI | key נפרד | key נפרד |
-| AWS IAM user ל-SES | user נפרד | user נפרד |
 | Frontend / Backend | הרצה מקומית | שני Projects ב-Vercel |
 | Google OAuth Client | Client נפרד, redirect ל-`localhost` | Client נפרד, redirect לכתובת Production |
 | `BACKEND_API_KEY`, `AUTH_SECRET` | ערכים מקומיים | ערכים נפרדים וחזקים |
@@ -771,7 +728,6 @@ Migrations מעבירים רק את מבנה הטבלאות, ה-Indexes וה-RLS
 | Region ותוכנית התשלום | Supabase, בכל Project בנפרד |
 | Google OAuth Client ו-Redirect URL | Google Cloud, בכל סביבה בנפרד |
 | Secrets ומשתני סביבה (`DATABASE_URL`, `OPENAI_API_KEY`, `BACKEND_API_KEY`, `AUTH_SECRET` ועוד) | `.env` ב-Development, Vercel ב-Production |
-| SES identities ו-IAM user | AWS |
 
 **Supabase Auth ו-Supabase Storage לא בשימוש** (סעיפים 7.2 ו-11.1), ולכן אין צורך להגדיר אותם באף Project.
 
@@ -812,9 +768,8 @@ Push to main (GitHub) → Vercel build (Root Directory: backend) → Production 
 | נתון | מחזור חיים |
 |---|---|
 | Client | נשמר ב-Database עד מחיקה ידנית (hard delete, אין recycle bin). |
-| PDF | זיכרון בלבד, בזמן הבקשה. מצורף להתראה כשצריך, ולא נשמר. |
+| PDF | זיכרון בלבד, בזמן הבקשה. לא נשמר. |
 | Shipment details | נשמרים ברשומה בעת יצירתה. לא מתעדכנים מ-HBL נוסף של אותו לקוח, וניתנים לעריכה ידנית. |
-| Notifications | לא נשמר תיעוד שלהן במערכת. |
 
 ---
 
@@ -823,28 +778,26 @@ Push to main (GitHub) → Vercel build (Root Directory: backend) → Production 
 ```text
 DocumentTextExtractor      extract(pdf): ExtractedText          → PdfJsTextExtractor
 ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipmentDataExtractor
-NotificationSender         sendManualReview(...)                → SesNotificationSender
 ```
 
-ההפרדה מאפשרת לבדוק את ה-business rules בלי OpenAI או SES אמיתיים, ולהחליף ספקים בעתיד.
+ההפרדה מאפשרת לבדוק את ה-business rules בלי OpenAI אמיתי, ולהחליף ספקים בעתיד.
 
 ---
 
 ## 24. Testing Boundaries
 
-ה-business rules נבדקים בלי OpenAI ו-SES אמיתיים, באמצעות NestJS DI ו-mocks.
+ה-business rules נבדקים בלי OpenAI אמיתי, באמצעות NestJS DI ו-mocks.
 
 תרחישים קריטיים:
-- New client with all required fields → `Success`, no alert.
-- Missing any required field → `Failed`, `errorDetails` lists all missing fields, one alert.
+- New client with all required fields → `Success`.
+- Missing any required field → `Failed`, `errorDetails` lists all missing fields.
 - Missing Address/Phone only → `Success`.
 - Duplicate: same Company Name + Email; Company Name only; Email only.
 - Same Company Name + different Email → new record.
 - No Company Name and no Email → new record, no duplicate check.
 - Duplicate does not change the existing record or its shipment details.
 - "TO ORDER" consignee → `companyName = null`.
-- PDF parse failure / AI error / AI timeout → no record, alert sent.
-- Alert send failure → `notificationSent: false`, no retry.
+- PDF parse failure / AI error / AI timeout → no record, `extraction_failed`.
 - Edit that completes all required fields → `Success`.
 - Edit that removes a required field → `Failed`.
 - Edit that creates a duplicate → 409, nothing saved.
@@ -857,7 +810,8 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 
 ## 25. Future Extension Points
 
-- **מייל שיווקי ללקוח:** אחרי בדיקה משפטית. כולל Email Status, תבנית, מנגנון הסרה ו-SES Production access.
+- **שליחת מיילים אוטומטית:** דרך סוכן שמריץ קונקטור ל-Microsoft 365.
+- **מייל שיווקי ללקוח:** אחרי בדיקה משפטית. כולל Email Status, תבנית ומנגנון הסרה.
 - **Incoming Email Processing:** mailbox → attachment extraction → אותו `ProcessingService`.
 - **OCR:** `DocumentTextExtractor` נוסף.
 - **Roles / Permissions:** אם יידרש להגביל מי נכנס או מה כל משתמש רשאי לעשות, על בסיס טבלת `users`.
@@ -877,7 +831,6 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 - [Vercel: Commercial usage ב-Fair Use Guidelines](https://vercel.com/docs/limits/fair-use-guidelines)
 - [Vercel: Runtime Logs](https://vercel.com/docs/logs/runtime)
 - [Vercel: Reserved environment variables](https://vercel.com/docs/environment-variables/reserved-environment-variables)
-- [AWS App Runner availability change](https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html)
 
 **Database**
 - [Supabase Pricing](https://supabase.com/pricing)
@@ -888,7 +841,6 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **שירותים נוספים**
 - [OpenAI: Structured model outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 - [OpenAI: GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
-- [Amazon SES sandbox](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)
 - [Auth.js: Google provider](https://authjs.dev/getting-started/providers/google)
 
 ---
@@ -908,7 +860,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 ### ADR-3: PDF.js לפני AI
 **הקשר:** ה-PRD מגדיר PDF דיגיטלי ולא OCR.
 **החלטה:** לחלץ text layer מקומית, ורק אחר כך לשלוח טקסט ל-OpenAI.
-**השלכות:** עלות ומורכבות נמוכות. PDF סרוק ייכשל ויעבור להתראה.
+**השלכות:** עלות ומורכבות נמוכות. PDF סרוק ייכשל, ותוצג הודעה במסך.
 
 ### ADR-4: AI אינו Business Logic Engine
 **הקשר:** סטטוסים וכפילויות חייבים להיות צפויים וניתנים לבדיקה.
@@ -916,8 +868,8 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **השלכות:** בדיקות דטרמיניסטיות. המודל ניתן להחלפה.
 
 ### ADR-5: אין אחסון קבצים
-**הקשר:** העיבוד סינכרוני, וה-PDF נדרש רק לצירוף להתראה באותה בקשה.
-**החלטה:** ה-PDF נשאר בזיכרון בלבד. אין S3.
+**הקשר:** העיבוד סינכרוני, וה-PDF נדרש רק במהלך הבקשה.
+**החלטה:** ה-PDF נשאר בזיכרון בלבד. אין אחסון קבצים.
 **השלכות:** פחות שירותים, פחות הרשאות ופחות הגדרות. אם העיבוד יהפוך לאסינכרוני, יידרש אחסון זמני.
 
 ### ADR-6: REST
@@ -926,7 +878,7 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **השלכות:** פשוט לפיתוח ול-debugging.
 
 ### ADR-7: Basic Auth + BFF במקום Login (הוחלפה ב-ADR-18)
-**הקשר:** ה-PRD אוסר על Login, אבל המערכת מכילה מידע עסקי ושולחת מיילים.
+**הקשר:** ה-PRD אוסר על Login, אבל המערכת מכילה מידע עסקי.
 **החלטה:** סיסמה משותפת ב-Basic Auth ב-Next.js. ה-Next.js משמש כ-proxy ל-Backend עם מפתח API.
 **השלכות:** ה-Backend לא נגיש ללא המפתח. מגבלת ההעלאה היא 4 MB, בגלל מגבלת גוף הבקשה של Vercel.
 
@@ -942,12 +894,12 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 
 ### ADR-10: מייל שיווקי מחוץ ל-MVP
 **הקשר:** שליחת מייל שיווקי לכתובות ממסמכי משלוח מחייבת בדיקה משפטית ואישור של ספק המייל.
-**החלטה:** אין מייל שיווקי ואין Email Status. SES משמש להתראות למשתמש בלבד, ונשאר ב-Sandbox.
+**החלטה:** אין מייל שיווקי ואין Email Status.
 **השלכות:** Processing Status הוא הסטטוס היחיד. הוספת מייל שיווקי בעתיד תחייב הרחבה של מודל הנתונים ושל ה-PRD.
 
 ### ADR-11: Docker נבנה בענן (הוחלפה ב-ADR-24)
 **הקשר:** המשתמש אינו מתכנת, ואין להתקין Docker מקומית.
-**החלטה:** GitHub Actions בונה את ה-image ודוחף ל-ECR.
+**החלטה:** GitHub Actions בונה את ה-image.
 **השלכות:** הפיתוח המקומי רץ ב-Node.js בלבד. ה-Dockerfile נבדק לראשונה בזמן הפריסה.
 
 ### ADR-12: npm workspaces עם פקודת הרצה אחת
@@ -1010,10 +962,10 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **החלטה:** כפתור **Sign out** בתחתית סרגל הניווט, שמוחק את ה-session ומחזיר ל-Sign In.
 **השלכות:** תוספת לממשק שלא מופיעה ב-PRD/DESIGN.
 
-### ADR-24: Vercel גם ל-Backend, במקום AWS App Runner
-**הקשר:** AWS סגר את App Runner ללקוחות חדשים, ומפנה לקוחות חדשים ל-Amazon ECS Express Mode. ההנחיות לפרויקט מעדיפות Vercel גם ל-Frontend וגם ל-Backend, כשמגבלות הפלטפורמה מתאימות למוצר. Vercel תומך ב-NestJS בלי שינוי בקוד ההפעלה. מגבלת 4.5 MB מתאימה לקובץ של עד 4 MB, ומגבלת הזמן של 300 שניות גבוהה מזמן העיבוד הנדרש.
-**החלטה:** שני Projects ב-Vercel מאותו Repository, עם Root Directory `frontend` ו-`backend`. ה-Backend נשאר NestJS נפרד, כדי לשמור על הקוד הקיים ועל ההפרדה שבעקרון 10. Docker, GitHub Actions, Amazon ECR ו-App Runner מוסרים. SES נשאר, ומתחבר עם IAM user בעל הרשאה יחידה. החיבור ל-Database נשאר דרך Session pooler (סעיף 15.2). Migrations ל-Production רצים לפי הנוהל בסעיף 21.
-**השלכות:** פריסה פשוטה יותר, בלי תשתית AWS לאירוח. ה-Backend לא שומר מצב בין בקשות, וה-Logs נשמרים לזמן קצר (סעיף 3.2). הפריסה הראשונה חייבת לוודא שקובץ ה-CA ו-PDF.js עובדים בסביבת Vercel. ADR-11 מוחלף.
+### ADR-24: Vercel גם ל-Backend
+**הקשר:** ההנחיות לפרויקט מעדיפות Vercel גם ל-Frontend וגם ל-Backend, כשמגבלות הפלטפורמה מתאימות למוצר. Vercel תומך ב-NestJS בלי שינוי בקוד ההפעלה. מגבלת 4.5 MB מתאימה לקובץ של עד 4 MB, ומגבלת הזמן של 300 שניות גבוהה מזמן העיבוד הנדרש.
+**החלטה:** שני Projects ב-Vercel מאותו Repository, עם Root Directory `frontend` ו-`backend`. ה-Backend נשאר NestJS נפרד, כדי לשמור על הקוד הקיים ועל ההפרדה שבעקרון 10. Docker ו-GitHub Actions מוסרים. החיבור ל-Database נשאר דרך Session pooler (סעיף 15.2). Migrations ל-Production רצים לפי הנוהל בסעיף 21.
+**השלכות:** פריסה פשוטה יותר, בלי תשתית אירוח נוספת. ה-Backend לא שומר מצב בין בקשות, וה-Logs נשמרים לזמן קצר (סעיף 3.2). הפריסה הראשונה חייבת לוודא שקובץ ה-CA ו-PDF.js עובדים בסביבת Vercel. ADR-11 מוחלף.
 
 ### ADR-25: `DuplicateDetectionService` ב-Clients Module
 **הקשר:** סעיף 6.2 ממקם את השירות ב-`processing/`. הוא משמש את העריכה ב-`ClientsModule`, וב-Milestone 4 `ProcessingModule` יזדקק ל-`ClientsModule` כדי ליצור לקוח. השארתו ב-`processing/` הייתה יוצרת תלות מעגלית בין שני ה-Modules.
@@ -1034,3 +986,8 @@ NotificationSender         sendManualReview(...)                → SesNotificat
 **הקשר:** המשתמש ראה ש-`name@gmail.co` עובר את הבדיקה של ADR-27, וביקש בדיקות נוספות למיילים.
 **החלטה:** הכללים של מייל מוחמרים, באותם תנאים של ADR-27 (רק ערך לא ריק ששונה): תווים מותרים, בלי נקודה בתחילה, בסוף או כפולה, דומיין תקין עם סיומת של 2 אותיות לפחות, ומגבלות אורך (64 תווים לפני ה-`@` ו-254 בסך הכול). בנוסף נחסמות טעויות הקלדה ידועות בדומיינים של ספקי מייל נפוצים (למשל `gmail.co`, `gmial.com`) וסיומות לא קיימות כמו `.con`, ובמסך מוצגת הצעה: `Did you mean name@gmail.com?`
 **השלכות:** הבדיקה לא מוודאת שהתיבה קיימת, ואין בדיקה מול שירות חיצוני. סיומת `.co` נחסמת רק בספקים שברשימה, כי חברות אמיתיות משתמשות בה. כתובות עם תווים שאינם באנגלית נחסמות. רשימת הטעויות כתובה ב-Backend וב-Frontend, וצריך לשנות אותה יחד.
+
+### ADR-29: בלי שליחת מיילים בגרסה הראשונה
+**הקשר:** המשתמש החליט שהמיילים יישלחו בהמשך באופן אוטומטי, דרך סוכן שמריץ קונקטור ל-Microsoft 365, ולא כחלק מה-MVP.
+**החלטה:** אין שירות מייל ואין Notification Module. כתובת המייל של ה-Consignee נחלצת ונשמרת כרגיל. טיפול ידני מדווח במסך: `File processed. Manual review required.` לרשומה עם `Failed`, ו-`File could not be processed. Please review the file manually.` לכשל חילוץ מלא.
+**השלכות:** בכשל חילוץ מלא לא נשאר תיעוד במערכת מעבר להודעה במסך ולוג טכני, ולכן המשתמש צריך לטפל בקובץ מיד. כשיתווספו המיילים, הם יחייבו עדכון של ה-PRD ושל מסמך זה.

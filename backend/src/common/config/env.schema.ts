@@ -22,9 +22,6 @@ export const envSchema = z.object({
   OPENAI_API_KEY: optionalString,
   OPENAI_MODEL: optionalString,
   OPENAI_EXTRACTION_PROMPT_VERSION: optionalString,
-  AWS_REGION: optionalString,
-  SES_FROM_ADDRESS: optionalString,
-  ADMIN_REVIEW_EMAIL: optionalString,
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -70,8 +70,8 @@
 |---|---|---|
 | לקוח נוסף עם `Success` | Success (ירוק) | `Client added successfully.` |
 | כפילות | Info (כחול) | `Client already exists. No changes were made.` |
-| נדרש טיפול ידני, וההתראה נשלחה | Warning (Amber) | `File processed. Manual review required — details were sent by email.` |
-| נדרש טיפול ידני, ושליחת ההתראה נכשלה | Error (אדום) | `Manual review required, but the notification email could not be sent. Please review the file manually.` |
+| נשמר עם `Failed` | Warning (Amber) | `File processed. Manual review required.` |
+| החילוץ נכשל ולא נוצרה רשומה | Error (אדום) | `File could not be processed. Please review the file manually.` |
 | הקובץ אינו PDF | Error | `Only PDF files are supported.` |
 | הקובץ גדול מדי | Error | `File is too large. Maximum size is 4 MB.` |
 | כשל טכני | Error | `Something went wrong. Please try again.` וכפתור **Try Again** |

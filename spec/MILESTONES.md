@@ -11,7 +11,7 @@
    - את התוצר שהושלם: מה עובד, איך מריצים אותו ואיך בודקים אותו.
    - את תוצאות הבדיקה מול **כל** סעיף ב-Definition of Done. לכל סעיף יש לציין עבר או נכשל, ואיך זה נבדק.
 3. **אין להתחיל** את ה-Milestone הבא ללא אישור מפורש של המשתמש.
-4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (Supabase, Google Cloud, AWS, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
+4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (Supabase, Google Cloud, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
 5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובץ `.env` מקומי, ולצדו קובץ `.env.example` ללא ערכים.
 6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**.
 7. **סביבת Production לא בשימוש עד Milestone 5.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–4. בהם ה-Push לא ממתין ל-Production. ב-Milestone 5 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
@@ -28,7 +28,7 @@
 | 1 | Project Foundation & App Shell | טכני (הקמה) | — |
 | 2 | Sign in with Google & Clients List | Vertical Slice | 1 |
 | 3 | Client Details, Edit & Delete | Vertical Slice | 2 |
-| 4 | PDF Upload, Extraction & Manual Review Alerts | Vertical Slice | 3 |
+| 4 | PDF Upload & Extraction | Vertical Slice | 3 |
 | 5 | Production Deployment | טכני (פריסה) | 4 |
 
 ---
@@ -180,30 +180,22 @@
 
 ---
 
-## Milestone 4 — PDF Upload, Extraction & Manual Review Alerts
+## Milestone 4 — PDF Upload & Extraction
 
 ### שם ומטרה
-המשתמש מעלה PDF של HBL. המערכת מחלצת ממנו את פרטי ה-Consignee ואת פרטי המשלוח, בודקת כפילות ושומרת לקוח עם הסטטוס הנכון. כשנדרש טיפול ידני, נשלחת למשתמש התראה במייל עם ה-PDF.
+המשתמש מעלה PDF של HBL. המערכת מחלצת ממנו את פרטי ה-Consignee ואת פרטי המשלוח, בודקת כפילות ושומרת לקוח עם הסטטוס הנכון. כשנדרש טיפול ידני, מוצגת הודעה במסך.
 
 ### מה יש לממש
-- **הקמת שירותים חיצוניים לסביבת Development.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
-  - OpenAI API key לסביבת Development.
-  - חשבון AWS, ובו Amazon SES ב-Region שנבחר:
-    - אימות ה-identity של תיבת המייל הייעודית (`SES_FROM_ADDRESS`).
-    - אימות כתובת המשתמש (`ADMIN_REVIEW_EMAIL`).
-    - SES נשאר ב-Sandbox.
-  - IAM user לפיתוח מקומי עם הרשאת `ses:SendRawEmail` בלבד. המפתחות שלו נשמרים ב-`backend/.env` (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), ומשתנים אלה נוספים ל-`.env.example` בלי ערכים.
+- **הקמת OpenAI לסביבת Development.** המשתמש יוצר OpenAI API key בהדרכה צעד אחר צעד, ושומר אותו ב-`backend/.env`.
 - **Database Migration**, אם נדרש שינוי ב-schema או ב-Indexes. ה-Migration רץ על Development.
-- **Backend:** `POST /api/v1/documents/process`, לפי ARCHITECTURE סעיפים 6.3, 7, 8, 9, 10 ו-12.2:
+- **Backend:** `POST /api/v1/documents/process`, לפי ARCHITECTURE סעיפים 6.3, 7, 8, 9 ו-12.2:
   - קובץ PDF יחיד עד 4 MB, עם ולידציה של MIME ו-magic bytes. הקובץ נשאר בזיכרון בלבד.
   - חילוץ טקסט עם PDF.js.
   - חילוץ מובנה עם OpenAI Structured Outputs, עם timeout של 60 שניות, לפי ה-Prompt rules בסעיף 8.4.
   - Normalization וכלל "TO ORDER".
-  - כשל חילוץ מלא: לא נוצרת רשומה, ונשלחת התראה.
+  - כשל חילוץ מלא: לא נוצרת רשומה.
   - Duplicate Detection באמצעות `DuplicateDetectionService` מ-Milestone 3.
   - יצירת רשומה, כשהסטטוס מחושב ב-`ClientStatusService`.
-  - כשהרשומה נשמרה עם `Failed`: **התראה אחת** עם כל השדות החסרים, המידע שחולץ וה-PDF.
-  - `SesNotificationSender`: אין retry, ובכשל מוחזר `notificationSent: false`.
   - Log events ו-`processing_outcome`, לפי ARCHITECTURE סעיף 18. בלי תוכן המסמך ובלי Secrets.
 - **Frontend:** מסך **Upload PDF**, לפי DESIGN סעיף 1.2:
   - Drag & Drop ו-**Choose PDF File**.
@@ -215,25 +207,24 @@
 
 ### תוצר מצופה
 - המשתמש מעלה HBL אמיתי, והלקוח מופיע במסך Clients עם הפרטים והסטטוס הנכונים.
-- מקרה חריג מייצר התראה אחת שמגיעה לתיבת המשתמש, עם ה-PDF מצורף.
+- מקרה חריג מציג הודעת טיפול ידני במסך.
 - העלאה חוזרת של אותו קובץ לא יוצרת כפילות.
 
 ### Definition of Done
-- [ ] OpenAI ו-SES Development הוגדרו על ידי המשתמש, והחיבור אליהם עובד.
+- [ ] OpenAI Development הוגדר על ידי המשתמש, והחיבור אליו עובד.
 - [ ] Migrations, אם נוספו, רצו בהצלחה על **Development**.
 - [ ] העלאת HBL תקין יוצרת לקוח עם כל 9 השדות שחולצו בצורה נכונה, עם `Success`, ומוצגת `Client added successfully.` נבדק על קובצי HBL לדוגמה שהמשתמש סיפק.
 - [ ] שדה שלא מופיע במסמך נשמר כ-`null`. המערכת לא מנחשת ערכים.
-- [ ] HBL שחסר בו שדה חובה אחד או יותר נשמר עם `Failed`, ו-Error Details מפרט את כולם. מתקבלת **התראה אחת** עם ה-PDF, ומוצגת הודעת Manual Review.
+- [ ] HBL שחסר בו שדה חובה אחד או יותר נשמר עם `Failed`, ו-Error Details מפרט את כולם, ומוצגת הודעת Manual Review.
 - [ ] Address או Phone חסרים לא מונעים `Success`.
 - [ ] Consignee מסוג "TO ORDER" נשמר עם Company Name חסר.
 - [ ] כפילות לפי כל אחד משלושת הכללים: אין רשומה חדשה, אין שינוי ברשומה הקיימת, ומוצגת הודעת כפילות.
 - [ ] בלי Company Name ובלי Email נוצרת רשומה חדשה גם בהעלאה חוזרת.
-- [ ] PDF ללא טקסט, כשל AI או timeout מדומה: לא נוצרת רשומה, ומתקבלת התראה עם סיבת הכשל וה-PDF.
-- [ ] כשל מדומה בשליחת ההתראה: אין retry, ומוצגת ההודעה `Manual review required, but the notification email could not be sent...`
+- [ ] PDF ללא טקסט, כשל AI או timeout מדומה: לא נוצרת רשומה, ומוצגת ההודעה `File could not be processed. Please review the file manually.`
 - [ ] קובץ שאינו PDF, או קובץ גדול מ-4 MB, נחסם גם ב-Frontend וגם ב-Backend, עם ההודעה המתאימה.
 - [ ] ה-PDF לא נשמר בשום מקום: לא בדיסק ולא ב-Database.
 - [ ] הלוגים מכילים את אירועי העיבוד ואת ה-outcome, ללא טקסט ה-PDF וללא Secrets.
-- [ ] כל תרחישי ARCHITECTURE סעיף 24 מכוסים ב-tests, עם mocks ל-OpenAI ול-SES, ועוברים.
+- [ ] כל תרחישי ARCHITECTURE סעיף 24 מכוסים ב-tests, עם mock ל-OpenAI, ועוברים.
 - [ ] מסך Upload PDF תואם ל-DESIGN.md.
 
 ---
@@ -252,13 +243,11 @@
 - **הרצת Migrations על Production**, לפי הנוהל ב-ARCHITECTURE סעיף 21: **כל ה-Database Migrations** רצים על Supabase Production, **באישור מפורש של המשתמש**, לפני ה-Push של הגרסה שתלויה בהם.
 - **הקמת שירותי Production.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
   - **Supabase Production**, שהוקם ב-Milestone 2: בדיקה שהפרויקט פעיל ולא מושהה.
-  - **SES:** אימות ה-identities לשימוש ב-Production. הם נשארים ב-Sandbox.
-  - **IAM user ל-Production**, נפרד מזה של הפיתוח, עם הרשאת `ses:SendRawEmail` בלבד.
   - **OpenAI key** ל-Production.
   - **Vercel, Project ל-Backend:**
     - חיבור ה-Repository ב-GitHub, עם Root Directory `backend`.
     - Region הקרוב ביותר ל-Supabase Production.
-    - הגדרת משתני הסביבה של ה-Backend (ARCHITECTURE סעיף 19) עם ערכי Production, כולל `DATABASE_URL` ומפתחות ה-IAM. הערכים הסודיים מוגדרים כ-Secret, ורק לסביבת Production של Vercel.
+    - הגדרת משתני הסביבה של ה-Backend (ARCHITECTURE סעיף 19) עם ערכי Production, כולל `DATABASE_URL`. הערכים הסודיים מוגדרים כ-Secret, ורק לסביבת Production של Vercel.
   - **Vercel, Project ל-Frontend:**
     - חיבור אותו Repository, עם Root Directory `frontend` ואותו Region.
     - הגדרת `BACKEND_API_URL` (הכתובת של Project ה-Backend), `BACKEND_API_KEY`, `AUTH_SECRET`, `AUTH_GOOGLE_ID` ו-`AUTH_GOOGLE_SECRET` עם ערכי Production, רק לסביבת Production של Vercel.
@@ -283,7 +272,7 @@
 - [ ] האתר דורש כניסה עם Google, והכניסה עובדת ב-Production. ה-Backend מחזיר 401 לבקשה ישירה בלי מפתח API.
 - [ ] ה-Backend ב-Production מחובר רק לשירותי Production.
 - [ ] Smoke test: העלאת HBL תקין יוצרת לקוח עם `Success`.
-- [ ] Smoke test: מקרה Manual Review שולח התראה עם ה-PDF ל-`ADMIN_REVIEW_EMAIL`.
+- [ ] Smoke test: מקרה Manual Review מציג את ההודעה המתאימה במסך.
 - [ ] Clients, Client Details, Edit ו-Delete עובדים ב-Production.
 - [ ] Logs זמינים ב-Runtime Logs של Vercel, ללא תוכן PDF וללא Secrets.
 - [ ] ה-README מעודכן עם הוראות הפריסה וה-Migration.
@@ -297,11 +286,10 @@
 | טקסט הודעת השגיאה במסך Sign In | נדרש להצגת כשל כניסה | 2 |
 | כפתור Sign out | לא מוגדר ב-PRD. להחליט אם נדרש | 2 |
 | קובצי HBL לדוגמה | נדרשים לבדיקת החילוץ | 4 |
-| כתובת תיבת המייל הייעודית | נדרשת לאימות ב-SES | 4 |
-| כתובת המייל של המשתמש להתראות | `ADMIN_REVIEW_EMAIL` | 4 |
 | זמינות מודל ה-AI שנבחר | לבדוק בתחילת Milestone 4 | 4 |
 | מדיניות שמירת הנתונים של OpenAI | לבדוק לפני שימוש עם נתונים אמיתיים | 4 |
 | תוכנית Vercel לשימוש מסחרי | עלות | 5 |
 | תוכנית Supabase ל-Production | עלות, גיבוי ומניעת השהיה | 5 |
+| שליחת מיילים דרך סוכן עם קונקטור ל-Microsoft 365 | לא חלק מה-MVP. שלב עתידי | — |
 | בדיקה משפטית למייל שיווקי | לא משפיעה על ה-MVP. תנאי לגרסה עתידית | — |
 | מדיניות גיבוי | לא משפיעה על ה-MVP | — |
