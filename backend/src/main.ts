@@ -7,7 +7,11 @@ import type { Env } from './common/config/env.schema';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
   configureApp(app);
-  const port = app.get(ConfigService<Env, true>).get('API_PORT', { infer: true });
+  const config = app.get(ConfigService<Env, true>);
+  // Vercel provides PORT. Locally it is ignored: it may be meant for another app, like the frontend.
+  const apiPort: number = config.get('API_PORT', { infer: true });
+  const isProduction = config.get('NODE_ENV', { infer: true }) === 'production';
+  const port = (isProduction && config.get('PORT', { infer: true })) || apiPort;
   await app.listen(port);
 }
 

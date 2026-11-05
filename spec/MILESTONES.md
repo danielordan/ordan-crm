@@ -14,8 +14,8 @@
 4. פעולות שדורשות חשבון, הרשאה או תשלום אצל ספק חיצוני (Supabase, Google Cloud, OpenAI, Vercel, GitHub) מבצע **המשתמש**. ה-AI מנחה אותו צעד אחר צעד, בשפה פשוטה, וממתין לאישור שהשלב בוצע. ה-AI לא מזין credentials בעצמו.
 5. Secrets לא נכנסים ל-Git. ההגדרות נשמרות בקובץ `.env` מקומי, ולצדו קובץ `.env.example` ללא ערכים.
 6. כל שינוי במבנה מסד הנתונים מתבצע באמצעות **Database Migration** בקוד, ונבדק מול סביבת **Development בלבד**.
-7. **סביבת Production לא בשימוש עד Milestone 5.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–4. בהם ה-Push לא ממתין ל-Production. ב-Milestone 5 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
-8. אין צורך להתקין Docker על מחשב המשתמש, ואין שימוש ב-Docker בפרויקט. הפריסה נעשית ישירות מ-GitHub ל-Vercel ב-Milestone 5.
+7. **סביבת Production לא בשימוש עד Milestone 6.** עד אז אין להריץ עליה Migrations ואין לגשת אליה. הבדיקה "Migrations שלא הורצו על Production" שמופיעה ב-`CLAUDE.md` לפני Push **לא חלה** על Milestones 1–5. בהם ה-Push לא ממתין ל-Production. ב-Milestone 6 ה-Migrations רצות על Production, באישור מפורש של המשתמש.
+8. אין צורך להתקין Docker על מחשב המשתמש, ואין שימוש ב-Docker בפרויקט. הפריסה נעשית ישירות מ-GitHub ל-Vercel ב-Milestone 6.
 9. אין להוסיף פיצ'רים, מסכים או יכולות שלא מופיעים ב-PRD. בפרט: **אין מייל שיווקי ואין Email Status**.
 10. אם מתגלה סתירה בין המסמכים, יש לפעול לפי כללי הסתירות שב-`CLAUDE.md`. כשהם לא מכריעים, יש לעצור ולשאול.
 
@@ -29,7 +29,8 @@
 | 2 | Sign in with Google & Clients List | Vertical Slice | 1 |
 | 3 | Client Details, Edit & Delete | Vertical Slice | 2 |
 | 4 | PDF Upload & Extraction | Vertical Slice | 3 |
-| 5 | Production Deployment | טכני (פריסה) | 4 |
+| 5 | Deployment Readiness & Development Verification | טכני (הכנה ובדיקה) | 4 |
+| 6 | Production Deployment | טכני (פריסה) | 5 |
 
 ---
 
@@ -89,7 +90,7 @@
   1. יצירת חשבון ב-Supabase.
   2. יצירת **שני Projects נפרדים**, `ordan-dev` ו-`ordan-prod`, כל אחד עם Database password חזק משלו.
   3. העתקת ה-Connection String של **Development** (Session pooler) ומזהה ה-Project שלו לקובץ `.env` המקומי (`DATABASE_URL`, `DATABASE_DEV_PROJECT_REF`).
-  4. שמירת פרטי Production בצד, לשימוש ב-Milestone 5. **אין להתחבר ל-Production בשלב זה.**
+  4. שמירת פרטי Production בצד, לשימוש ב-Milestone 6. **אין להתחבר ל-Production בשלב זה.**
 - **הקמת Google OAuth לסביבת Development.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
   1. יצירת Project ב-Google Cloud.
   2. הגדרת OAuth consent screen, והעברתו למצב "In production" כדי שכל חשבון Google יוכל להיכנס.
@@ -230,17 +231,42 @@
 
 ---
 
-## Milestone 5 — Production Deployment
+## Milestone 5 — Deployment Readiness & Development Verification ✅
 
 ### שם ומטרה
-פריסת המערכת לסביבת Production מאובטחת, ועדכון סביבת Production לכל השינויים שבוצעו עד כה.
+הכנת הקוד לפריסה, בלי לפרוס, ובדיקה שסביבת Development תקינה מקצה לקצה. ב-Milestone זה אין Push ואין גישה ל-Production.
 
 ### מה יש לממש
 - **הכנת הקוד לפריסה ב-Vercel** (ARCHITECTURE סעיף 15.2 ו-ADR-24):
   - `backend/vercel.json`, עם `maxDuration` של 120 שניות ו-`includeFiles` עבור `certs/supabase-ca.crt`.
   - נעילת גרסת Node.js ל-`24.x` בשדה `engines`.
   - Pool קטן של חיבורי Database ב-Production.
-  - פקודת Migration ל-Production, שמבקשת את ה-Connection String בשדה נסתר ולא שומרת אותו (ARCHITECTURE סעיף 21).
+  - פקודת Migration ל-Production, שמבקשת את ה-Connection String בשדה נסתר ולא שומרת אותו (ARCHITECTURE סעיף 21). הפקודה נבנית כאן, ורצה רק ב-Milestone 6.
+- **README:** הוראות הפריסה, ותיעוד איך מריצים Migrations על Production.
+- **בדיקת סביבת Development:** הרצת ה-Migrations, הבדיקות האוטומטיות, הבנייה והאפליקציה המקומית, מול Supabase Development בלבד.
+
+### תוצר מצופה
+המשתמש מריץ את המערכת מקומית, וכל זרימות ה-PRD עובדות מול שירותי Development. הקוד מוכן לפריסה ב-Milestone 6.
+
+### Definition of Done
+- [ ] `npm run dev` מעלה את שתי האפליקציות ללא שגיאות.
+- [ ] `npm run db:migrate` על Development מסתיים בהצלחה, ולא משנה דבר כשאין Migration חדש.
+- [ ] Lint, Format ו-Tests עוברים, כולל ה-Tests מול Supabase Development.
+- [ ] הבנייה של `frontend` ושל `backend` עוברת.
+- [ ] `GET /health` מחזיר 200, ובקשה ל-`/api/v1/*` בלי מפתח מחזירה 401.
+- [ ] בלי כניסה, דף מפנה ל-`/sign-in`, ו-`/api/*` מחזיר 401.
+- [ ] המשתמש נכנס עם Google, ו-Clients, Client Details, Edit, Delete ו-Upload PDF עובדים מול Development.
+- [ ] פקודת ה-Migration ל-Production מסרבת לקלט לא תקין ולכתובת של Development, ולא מציגה את הערך שהודבק.
+- [ ] לא בוצעו Push, פריסה או גישה ל-Production.
+
+---
+
+## Milestone 6 — Production Deployment
+
+### שם ומטרה
+פריסת המערכת לסביבת Production מאובטחת, ועדכון סביבת Production לכל השינויים שבוצעו עד כה.
+
+### מה יש לממש
 - **הרצת Migrations על Production**, לפי הנוהל ב-ARCHITECTURE סעיף 21: **כל ה-Database Migrations** רצים על Supabase Production, **באישור מפורש של המשתמש**, לפני ה-Push של הגרסה שתלויה בהם.
 - **הקמת שירותי Production.** המשתמש מבצע את הצעדים בהדרכה צעד אחר צעד:
   - **Supabase Production**, שהוקם ב-Milestone 2: בדיקה שהפרויקט פעיל ולא מושהה.
@@ -259,7 +285,8 @@
   - HTTPS בלבד.
   - אין Secrets בקוד או ב-Repository.
 - **Smoke test ב-Production:** העלאה של HBL אמיתי ובדיקת התהליך כולו.
-- **README:** עדכון הוראות הפריסה, ותיעוד איך מריצים Migrations על Production.
+- **Push ל-GitHub** של הגרסה שנפרסת, באישור המשתמש.
+- **README:** עדכון ההוראות, אם התגלה בפריסה משהו שונה מהכתוב.
 
 ### תוצר מצופה
 המערכת זמינה ב-Production בכתובת HTTPS שמוגנת בכניסה עם Google, מחוברת לשירותי Production בלבד, וכל זרימות ה-PRD עובדות בה מקצה לקצה.
@@ -289,8 +316,8 @@
 | קובצי HBL לדוגמה | נדרשים לבדיקת החילוץ | 4 |
 | זמינות מודל ה-AI שנבחר | לבדוק בתחילת Milestone 4 | 4 |
 | מדיניות שמירת הנתונים של OpenAI | לבדוק לפני שימוש עם נתונים אמיתיים | 4 |
-| תוכנית Vercel לשימוש מסחרי | עלות | 5 |
-| תוכנית Supabase ל-Production | עלות, גיבוי ומניעת השהיה | 5 |
+| תוכנית Vercel לשימוש מסחרי | עלות | 6 |
+| תוכנית Supabase ל-Production | עלות, גיבוי ומניעת השהיה | 6 |
 | שליחת מיילים דרך סוכן עם קונקטור ל-Microsoft 365 | לא חלק מה-MVP. שלב עתידי | — |
 | בדיקה משפטית למייל שיווקי | לא משפיעה על ה-MVP. תנאי לגרסה עתידית | — |
 | מדיניות גיבוי | לא משפיעה על ה-MVP | — |

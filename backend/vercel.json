@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/main.ts": {
+      "maxDuration": 120,
+      "includeFiles": "certs/supabase-ca.crt"
+    }
+  }
+}

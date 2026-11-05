@@ -52,6 +52,12 @@ describe('PdfJsTextExtractor', () => {
     ]);
   });
 
+  it('uses an explicitly imported worker, so the file is included in the deployment', async () => {
+    await extractor.extract(makePdf('CONSIGNEE Acme Trading Ltd info@acme.com'));
+    const { pdfjsWorker } = globalThis as { pdfjsWorker?: { WorkerMessageHandler?: unknown } };
+    expect(pdfjsWorker?.WorkerMessageHandler).toBeDefined();
+  });
+
   it('leaves the original bytes untouched', async () => {
     const pdf = makePdf('CONSIGNEE Acme Trading Ltd info@acme.com');
     const copy = Buffer.from(pdf);

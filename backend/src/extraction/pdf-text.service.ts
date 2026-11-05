@@ -71,6 +71,11 @@ function layoutText(items: TextPiece[]): string {
 async function readText(pdf: Buffer): Promise<string> {
   // pdfjs-dist is ESM-only and the backend is CommonJS, so it has to be a dynamic import
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // PDF.js otherwise finds its worker through a path computed at runtime, which Vercel cannot see
+  // when it decides which files to deploy. An explicit import is deployed, and PDF.js uses it.
+  (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker ??=
+    // @ts-expect-error -- pdfjs-dist ships no types for the worker file
+    await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
   const task = getDocument({
     // PDF.js rejects Buffer; this also copies the bytes, leaving the caller's buffer untouched
     data: new Uint8Array(pdf),

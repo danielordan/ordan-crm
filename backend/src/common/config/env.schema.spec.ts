@@ -14,6 +14,16 @@ describe('validateEnv', () => {
     );
   });
 
+  it('accepts the PORT provided by the hosting platform', () => {
+    const env = validateEnv({
+      BACKEND_API_KEY: 'a'.repeat(32),
+      DATABASE_URL,
+      OPENAI_API_KEY,
+      PORT: '3000',
+    });
+    expect(env.PORT).toBe(3000);
+  });
+
   it('rejects a short BACKEND_API_KEY', () => {
     expect(() => validateEnv({ BACKEND_API_KEY: 'short', DATABASE_URL, OPENAI_API_KEY })).toThrow(
       /BACKEND_API_KEY/,

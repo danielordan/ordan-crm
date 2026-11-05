@@ -6,6 +6,7 @@ const optionalString = z.string().trim().min(1).optional();
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   BACKEND_API_KEY: z.string().min(16, 'must be at least 16 characters'),
+  PORT: z.coerce.number().int().positive().optional(),
   API_PORT: z.coerce.number().int().positive().default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(4194304),

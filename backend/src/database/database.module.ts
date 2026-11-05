@@ -5,6 +5,9 @@ import type { Env } from '../common/config/env.schema';
 import { DATABASE_POOL } from './database.constants';
 import { createPool } from './pool';
 
+// Many Vercel Function instances can run at once, so each one keeps few connections (ARCHITECTURE 15.2)
+export const PRODUCTION_POOL_MAX = 2;
+
 @Injectable()
 class DatabaseShutdown implements OnApplicationShutdown {
   constructor(@Inject(DATABASE_POOL) private readonly pool: Pool) {}
@@ -25,6 +28,10 @@ class DatabaseShutdown implements OnApplicationShutdown {
         createPool({
           connectionString: config.get('DATABASE_URL', { infer: true }),
           schema: config.get('DATABASE_SCHEMA', { infer: true }),
+          max:
+            config.get('NODE_ENV', { infer: true }) === 'production'
+              ? PRODUCTION_POOL_MAX
+              : undefined,
         }),
     },
     DatabaseShutdown,
