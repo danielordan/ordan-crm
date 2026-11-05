@@ -1,9 +1,12 @@
+import { normalizeCompanyName, normalizeEmail, phoneToDigits } from '../common/text/normalize';
 import type {
   Client,
   ClientFields,
   ClientListItem,
   ClientListRow,
   ClientRow,
+  ClientStatus,
+  ClientWrite,
 } from './client.types';
 
 export function toClientListItem(row: ClientListRow): ClientListItem {
@@ -28,6 +31,17 @@ export function toClientFields(row: ClientRow): ClientFields {
     destinationPort: row.destination_port,
     incoterms: row.incoterms,
     shipmentType: row.shipment_type,
+  };
+}
+
+// Adds the columns derived from the fields (ARCHITECTURE 9.4)
+export function toClientWrite(fields: ClientFields, status: ClientStatus): ClientWrite {
+  return {
+    ...fields,
+    ...status,
+    companyNameNormalized: normalizeCompanyName(fields.companyName),
+    emailNormalized: normalizeEmail(fields.email),
+    phoneDigits: phoneToDigits(fields.phone),
   };
 }
 

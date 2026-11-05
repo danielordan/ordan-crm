@@ -32,6 +32,7 @@ The browser only talks to the frontend. Users sign in with Google; the frontend 
    | `frontend/.env` | `BACKEND_API_KEY`          | **The same** string as in `backend/.env`                       |
    | `backend/.env`  | `DATABASE_URL`             | Supabase `ordan-dev` project → Connect → Session pooler string |
    | `backend/.env`  | `DATABASE_DEV_PROJECT_REF` | Supabase `ordan-dev` → Project Settings → General → Project ID |
+   | `backend/.env`  | `OPENAI_API_KEY`           | OpenAI dashboard → API keys                                    |
    | `frontend/.env` | `AUTH_SECRET`              | A random string (see below)                                    |
    | `frontend/.env` | `AUTH_GOOGLE_ID`           | Google Cloud → Google Auth Platform → Clients → Client ID      |
    | `frontend/.env` | `AUTH_GOOGLE_SECRET`       | Same OAuth client → Client secret                              |
@@ -42,7 +43,7 @@ The browser only talks to the frontend. Users sign in with Google; the frontend 
    node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
 
-   The OpenAI variables in `backend/.env` are filled in Milestone 4.
+   `OPENAI_MODEL` and `OPENAI_EXTRACTION_PROMPT_VERSION` can stay empty; the backend then uses its defaults.
 
 3. Accounts (one-time):
    - **Supabase:** two projects, `ordan-dev` (local development) and `ordan-prod` (production, Milestone 5). The database SSL certificate (Project Settings → Database → SSL Configuration → Download certificate) is stored in `backend/certs/supabase-ca.crt`; it is public, not a secret.

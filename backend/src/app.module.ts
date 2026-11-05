@@ -10,7 +10,6 @@ import { HealthController } from './common/system/health.controller';
 import { DatabaseModule } from './database/database.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ExtractionModule } from './extraction/extraction.module';
-import { NotificationsModule } from './notifications/notifications.module';
 import { ProcessingModule } from './processing/processing.module';
 import { UsersModule } from './users/users.module';
 
@@ -27,7 +26,6 @@ export const RATE_LIMIT = { ttl: 60_000, limit: 300 };
     DocumentsModule,
     ProcessingModule,
     ExtractionModule,
-    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [

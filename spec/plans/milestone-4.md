@@ -23,7 +23,7 @@
 
 1. **קובצי HBL לדוגמה (TBD ב-MILESTONES).** אין כרגע אף PDF בפרויקט. המשתמש שם אותם בתיקייה `samples/` בשורש. התיקייה מתווספת ל-`.gitignore`, כי אלה נתוני לקוחות אמיתיים שלא נכנסים ל-Git. רצוי לכלול: HBL מלא, HBL שחסר בו שדה, ו-HBL מסוג "TO ORDER", אם יש.
 2. **מדיניות שמירת הנתונים של OpenAI (TBD ב-PRD ו-ARCHITECTURE 3.2).** הבדיקה מראה שנתוני API לא משמשים לאימון מודלים כברירת מחדל, אבל לוגים לניטור שימוש לרעה, שעשויים לכלול את תוכן הבקשה, נשמרים עד 30 יום. הקוד ישלח `store: false`, אבל זה לא מבטל את הלוגים האלה. המשתמש מאשר זאת לפני שליחת HBL אמיתי.
-3. **OpenAI:** יצירת API key לפיתוח, כולל הגדרת תשלום בחשבון אם נדרשת, והוספתו ל-`OPENAI_API_KEY` ב-`backend/.env`. `OPENAI_MODEL` ו-`OPENAI_EXTRACTION_PROMPT_VERSION` יכולים להישאר ריקים, וייכנסו ערכי ברירת מחדל.
+3. **OpenAI:** למשתמש כבר יש API key. הוא מוסיף אותו בעצמו ל-`OPENAI_API_KEY` ב-`backend/.env`. ל-Production יידרש מפתח נפרד ב-Milestone 5 (ARCHITECTURE 20). `OPENAI_MODEL` ו-`OPENAI_EXTRACTION_PROMPT_VERSION` יכולים להישאר ריקים, וייכנסו ערכי ברירת מחדל.
 
 **זמינות המודל (TBD ב-MILESTONES):** נבדק בתיעוד של OpenAI. `gpt-5.4-mini` זמין ב-Responses API ותומך ב-Structured Outputs, בלי הודעה על הפסקה. בדיקה סופית: קריאה אמיתית עם המפתח של המשתמש.
 
@@ -42,7 +42,7 @@
 ### 4.1 Configuration
 - `common/config/env.schema.ts`:
   - **הופך לחובה:** `OPENAI_API_KEY`.
-  - **ברירות מחדל:** `OPENAI_MODEL=gpt-5.4-mini`, `OPENAI_EXTRACTION_PROMPT_VERSION=v1`.
+  - **ברירות מחדל:** `OPENAI_MODEL=gpt-5.4-mini`, `OPENAI_EXTRACTION_PROMPT_VERSION=v4`.
   - המשמעות: ה-Backend לא עולה בלי ההגדרות, בהתאם ל-ARCHITECTURE 20.1.
 - `test/setup-env.ts`: ערך דמה קבוע ל-`OPENAI_API_KEY`. הבדיקות לא נוגעות ב-OpenAI האמיתי.
 - `env.schema.spec.ts`: עדכון לפי הכללים החדשים.
@@ -126,8 +126,8 @@ unexpected error (e.g. database): TECHNICAL_FAILURE → rethrow → 500
 |---|---|---|
 | `created` + `Success` | Success | `Client added successfully.` |
 | `duplicate` | Info | `Client already exists. No changes were made.` |
-| `created` + `Failed` | Warning | `File processed. Manual review required.` |
-| `extraction_failed` | Error | `File could not be processed. Please review the file manually.` |
+| `created` + `Failed` | Warning | `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים ו-**Edit Client** |
+| `extraction_failed` | Error | `Could not extract information from the file. Please try again.` + **Try Again** |
 | 400, או בדיקת סוג בדפדפן | Error | `Only PDF files are supported.` |
 | 413, או בדיקת גודל בדפדפן | Error | `File is too large. Maximum size is 4 MB.` |
 | 401 | — | מעבר ל-`/sign-in`, כמו בשאר המסכים |
@@ -183,14 +183,14 @@ unexpected error (e.g. database): TECHNICAL_FAILURE → rethrow → 500
 
 ## 8. התנהגויות שכדאי להכיר
 
-- קובץ PDF עם טקסט שאינו HBL יוצר רשומה ריקה עם `Failed`. זו ההתנהגות שה-spec קובע: PRD 5.ב (אין בדיקה שה-PDF הוא HBL), ושורת "חסרים גם Company Name וגם Email".
+- קובץ PDF עם טקסט שאינו HBL: אם לא נמצא בו אף שדה, לא נוצרת רשומה (ADR-31). אם נמצא חלק מהשדות, נשמרת רשומה עם `Failed`, כי ה-spec לא דורש לבדוק שה-PDF הוא HBL (PRD 5.ב).
 - כשל Database אחרי החילוץ מחזיר `Something went wrong`, כי ה-spec קובע 500 לתקלה טכנית.
 - בכשל חילוץ מלא לא נשאר תיעוד במערכת מעבר להודעה במסך, ולכן צריך לטפל בקובץ מיד (ADR-29).
 - `backend/vercel.json` ובדיקת PDF.js בסביבת Vercel שייכים ל-Milestone 5.
 
 ## 9. סדר העבודה
 
-1. בדיקת הדרישות בסעיף 2, והדרכת המשתמש בהקמת OpenAI.
+1. בדיקת הדרישות בסעיף 2: קובצי הדוגמה, האישור לגבי OpenAI, והמפתח הקיים ב-`backend/.env`.
 2. התקנת ספריות ועדכון ה-Config. בדיקה ראשונה: טעינת PDF.js ב-Node וב-Jest.
 3. Extraction, Processing ו-Documents, עם ה-Unit tests, והסרת `NotificationsModule` הריק.
 4. E2E tests.

@@ -90,8 +90,8 @@
 1. המערכת מעבדת את ה-PDF.
 2. חסר שדה חובה אחד או יותר, או שהחילוץ נכשל לגמרי.
 3. אם חולץ מידע: הרשומה נשמרת עם Processing Status = `Failed` ו-Error Details. אם החילוץ נכשל לגמרי: לא נוצרת רשומה.
-4. אם נוצרה רשומה, מוצגת ההודעה `File processed. Manual review required.` אם לא נוצרה, מוצגת ההודעה `File could not be processed. Please review the file manually.`
-5. אם נוצרה רשומה, המשתמש פותח אותה ב-Client Details, משלים את המידע החסר ושומר. אם כל שדות החובה מלאים, הסטטוס הופך ל-`Success`.
+4. אם נוצרה רשומה, מוצגת ההודעה `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**. אם לא נוצרה, מוצגת ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**.
+5. אם נוצרה רשומה, המשתמש עובר אליה בלחיצה על **Edit Client**, משלים את המידע החסר ושומר. אם כל שדות החובה מלאים, הסטטוס הופך ל-`Success`.
 
 ### ב. User Flows — זרימות משתמש
 
@@ -173,8 +173,8 @@
 |---|---|
 | לקוח חדש נשמר עם `Success` | `Client added successfully.` |
 | כפילות | `Client already exists. No changes were made.` |
-| נשמר עם `Failed` | `File processed. Manual review required.` |
-| החילוץ נכשל לגמרי ולא נוצרה רשומה | `File could not be processed. Please review the file manually.` |
+| נשמר עם `Failed` | `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים, וכפתור **Edit Client** שפותח את הלקוח במצב עריכה |
+| החילוץ נכשל לגמרי ולא נוצרה רשומה | `Could not extract information from the file. Please try again.` וכפתור **Try Again** |
 | הקובץ אינו PDF | `Only PDF files are supported.` |
 | הקובץ גדול מ-4 MB | `File is too large. Maximum size is 4 MB.` |
 | כשל טכני בהעלאה או בתקשורת | `Something went wrong. Please try again.` וכפתור **Try Again** |
@@ -213,9 +213,9 @@
 | `Failed` | חסר לפחות שדה חובה אחד. Error Details מפרט את כל השדות החסרים. |
 
 #### כשל חילוץ מלא
-אם אי אפשר לקרוא טקסט מה-PDF, אם קריאת ה-AI נכשלת, או אם היא לא מסתיימת תוך 60 שניות:
+אם אי אפשר לקרוא טקסט מה-PDF, אם לא חולץ אף שדה, אם קריאת ה-AI נכשלת, או אם היא לא מסתיימת תוך 60 שניות:
 - **לא נוצרת רשומה.**
-- מוצגת במסך ההודעה `File could not be processed. Please review the file manually.`
+- מוצגת במסך ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**.
 
 ### 4.6 מסך Client Details
 מסך נפרד שמציג את פרטי הלקוח בצורה גדולה וברורה.
@@ -283,8 +283,8 @@
 | קובץ שאינו PDF | חסימה והודעה: `Only PDF files are supported.` |
 | קובץ גדול מ-4 MB | חסימה והודעה: `File is too large. Maximum size is 4 MB.` |
 | כשל טכני בהעלאה | הודעת שגיאה וכפתור **Try Again**. |
-| PDF בלי טקסט, כשל AI או חריגה מ-60 שניות | לא נוצרת רשומה, ומוצגת ההודעה `File could not be processed. Please review the file manually.` |
-| שדה חובה אחד או יותר חסר | שמירה עם `Failed`, ו-Error Details מפרט את כל השדות החסרים. מוצגת ההודעה `File processed. Manual review required.` |
+| PDF בלי טקסט, אף שדה שלא חולץ, כשל AI או חריגה מ-60 שניות | לא נוצרת רשומה. מוצגת ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**. |
+| שדה חובה אחד או יותר חסר | שמירה עם `Failed`, ו-Error Details מפרט את כל השדות החסרים. מוצגת ההודעה `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**. |
 | Address או Phone חסרים | שמירה עם `Success`, ותצוגה כ-`NOT Available`. |
 | Consignee הוא "TO ORDER" או בנק | Company Name נחשב חסר. |
 | כמה מיילים או טלפונים | נשמר הראשון במסמך. |

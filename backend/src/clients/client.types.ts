@@ -64,8 +64,8 @@ export interface Client extends ClientFields, ClientStatus {
   dateAdded: string;
 }
 
-// Values written by an edit, including everything derived from the edited fields
-export interface ClientUpdate extends ClientFields, ClientStatus {
+// Values written when creating or editing, including everything derived from the fields
+export interface ClientWrite extends ClientFields, ClientStatus {
   companyNameNormalized: string | null;
   emailNormalized: string | null;
   phoneDigits: string | null;

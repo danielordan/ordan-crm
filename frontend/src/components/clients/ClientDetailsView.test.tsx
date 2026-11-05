@@ -62,6 +62,19 @@ describe('ClientDetailsView', () => {
     vi.unstubAllGlobals();
   });
 
+  it('opens in edit mode when arriving to fix a record, and Cancel returns to viewing', async () => {
+    respond(failedClient);
+    render(<ClientDetailsView id={ID} startInEdit />);
+
+    expect(await screen.findByDisplayValue('Blue Ocean Imports')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByText('Blue Ocean Imports')).toBeInTheDocument();
+  });
+
   describe('viewing', () => {
     it('shows every field in order, with NOT Available for missing values', async () => {
       respond(failedClient);

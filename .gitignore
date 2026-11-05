@@ -83,3 +83,6 @@ temp/
 
 # --- Next.js generated ---
 next-env.d.ts
+
+# --- HBL sample files (real customer data, never commit) ---
+samples/

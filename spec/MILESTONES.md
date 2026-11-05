@@ -180,7 +180,7 @@
 
 ---
 
-## Milestone 4 — PDF Upload & Extraction
+## Milestone 4 — PDF Upload & Extraction ✅
 
 ### שם ומטרה
 המשתמש מעלה PDF של HBL. המערכת מחלצת ממנו את פרטי ה-Consignee ואת פרטי המשלוח, בודקת כפילות ושומרת לקוח עם הסטטוס הנכון. כשנדרש טיפול ידני, מוצגת הודעה במסך.
@@ -202,7 +202,8 @@
   - בדיקת סוג וגודל בצד הלקוח.
   - Processing indicator.
   - הודעות התוצאה לפי הטבלה ב-DESIGN.
-  - **Try Again** בכשל טכני.
+  - **Try Again** בכשל טכני ובכשל חילוץ מלא.
+  - **Edit Client** ברשומה שנשמרה עם `Failed`, שפותח את הלקוח במצב עריכה.
   - Route ההעלאה ב-Proxy מגדיר `maxDuration` של 130 שניות (ARCHITECTURE סעיף 7.5).
 
 ### תוצר מצופה
@@ -215,12 +216,12 @@
 - [ ] Migrations, אם נוספו, רצו בהצלחה על **Development**.
 - [ ] העלאת HBL תקין יוצרת לקוח עם כל 9 השדות שחולצו בצורה נכונה, עם `Success`, ומוצגת `Client added successfully.` נבדק על קובצי HBL לדוגמה שהמשתמש סיפק.
 - [ ] שדה שלא מופיע במסמך נשמר כ-`null`. המערכת לא מנחשת ערכים.
-- [ ] HBL שחסר בו שדה חובה אחד או יותר נשמר עם `Failed`, ו-Error Details מפרט את כולם, ומוצגת הודעת Manual Review.
+- [ ] HBL שחסר בו שדה חובה אחד או יותר נשמר עם `Failed`, ו-Error Details מפרט את כולם. מוצגת ההודעה `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**.
 - [ ] Address או Phone חסרים לא מונעים `Success`.
 - [ ] Consignee מסוג "TO ORDER" נשמר עם Company Name חסר.
 - [ ] כפילות לפי כל אחד משלושת הכללים: אין רשומה חדשה, אין שינוי ברשומה הקיימת, ומוצגת הודעת כפילות.
 - [ ] בלי Company Name ובלי Email נוצרת רשומה חדשה גם בהעלאה חוזרת.
-- [ ] PDF ללא טקסט, כשל AI או timeout מדומה: לא נוצרת רשומה, ומוצגת ההודעה `File could not be processed. Please review the file manually.`
+- [ ] PDF ללא טקסט, אף שדה שלא חולץ, כשל AI או timeout מדומה: לא נוצרת רשומה, ומוצגים ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**.
 - [ ] קובץ שאינו PDF, או קובץ גדול מ-4 MB, נחסם גם ב-Frontend וגם ב-Backend, עם ההודעה המתאימה.
 - [ ] ה-PDF לא נשמר בשום מקום: לא בדיסק ולא ב-Database.
 - [ ] הלוגים מכילים את אירועי העיבוד ואת ה-outcome, ללא טקסט ה-PDF וללא Secrets.

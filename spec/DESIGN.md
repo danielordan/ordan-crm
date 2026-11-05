@@ -70,8 +70,8 @@
 |---|---|---|
 | לקוח נוסף עם `Success` | Success (ירוק) | `Client added successfully.` |
 | כפילות | Info (כחול) | `Client already exists. No changes were made.` |
-| נשמר עם `Failed` | Warning (Amber) | `File processed. Manual review required.` |
-| החילוץ נכשל ולא נוצרה רשומה | Error (אדום) | `File could not be processed. Please review the file manually.` |
+| נשמר עם `Failed` | Warning (Amber) | `Information was extracted, but some required fields are missing.`, מתחתיו רשימת השדות החסרים, והכפתור **Edit Client** (Secondary) שפותח את הלקוח במצב עריכה |
+| החילוץ נכשל ולא נוצרה רשומה | Error (אדום) | `Could not extract information from the file. Please try again.` וכפתור **Try Again** |
 | הקובץ אינו PDF | Error | `Only PDF files are supported.` |
 | הקובץ גדול מדי | Error | `File is too large. Maximum size is 4 MB.` |
 | כשל טכני | Error | `Something went wrong. Please try again.` וכפתור **Try Again** |

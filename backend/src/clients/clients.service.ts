@@ -4,21 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { normalizeCompanyName, normalizeEmail, phoneToDigits } from '../common/text/normalize';
 import { isValidEmail, isValidPhone } from '../common/validation/contact';
-import { toClient, toClientFields, toClientListItem } from './client.mapper';
+import { toClient, toClientFields, toClientListItem, toClientWrite } from './client.mapper';
 import { ClientStatusService } from './client-status.service';
 import type { Client, ClientFields, ClientListResponse, ClientRow } from './client.types';
-import { ClientsRepository } from './clients.repository';
+import { ClientsRepository, isUniqueViolation } from './clients.repository';
 import { DuplicateDetectionService } from './duplicate-detection.service';
 import { PAGE_SIZE, type ListClientsQuery } from './dto/list-clients.query';
 import type { UpdateClientDto } from './dto/update-client.dto';
-
-const POSTGRES_UNIQUE_VIOLATION = '23505';
-
-function isUniqueViolation(error: unknown): boolean {
-  return (error as { code?: unknown } | null)?.code === POSTGRES_UNIQUE_VIOLATION;
-}
 
 function duplicateClient(): ConflictException {
   return new ConflictException({
@@ -70,25 +63,18 @@ export class ClientsService {
     assertValidContactFields(changes, current);
 
     const fields: ClientFields = { ...toClientFields(current), ...changes };
-    const companyNameNormalized = normalizeCompanyName(fields.companyName);
-    const emailNormalized = normalizeEmail(fields.email);
+    const write = toClientWrite(fields, this.status.compute(fields));
 
     // Only an edit of the name or email can create a duplicate (PRD 4.6, ARCHITECTURE ADR-26)
     const identityChanged =
-      companyNameNormalized !== current.company_name_normalized ||
-      emailNormalized !== current.email_normalized;
+      write.companyNameNormalized !== current.company_name_normalized ||
+      write.emailNormalized !== current.email_normalized;
     if (identityChanged && (await this.duplicates.findDuplicate(fields, id))) {
       throw duplicateClient();
     }
 
     try {
-      const updated = await this.clients.update(id, {
-        ...fields,
-        ...this.status.compute(fields),
-        companyNameNormalized,
-        emailNormalized,
-        phoneDigits: phoneToDigits(fields.phone),
-      });
+      const updated = await this.clients.update(id, write);
       if (!updated) throw new NotFoundException('Client not found.');
       return toClient(updated);
     } catch (error) {

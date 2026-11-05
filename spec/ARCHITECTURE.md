@@ -205,7 +205,7 @@ extract text (PDF.js)
 ↓
 extract structured fields (OpenAI, timeout OPENAI_TIMEOUT_MS)
 ↓
-if text/AI failed or timed out:
+if text/AI failed or timed out, or no field was found:
     return { result: "extraction_failed" }
 ↓
 normalize fields (section 8.5)
@@ -494,7 +494,7 @@ Content-Type: multipart/form-data   (field: file)
 Responses:
 ```json
 { "result": "created", "processingStatus": "Success", "clientId": "..." }
-{ "result": "created", "processingStatus": "Failed", "clientId": "..." }
+{ "result": "created", "processingStatus": "Failed", "clientId": "...", "errorDetails": "Missing required fields: ..." }
 { "result": "duplicate" }
 { "result": "extraction_failed" }
 ```
@@ -658,7 +658,7 @@ Missing required fields: Email, Incoterms.
 AUTO_SUCCESS        → record created with Success
 DUPLICATE_SKIPPED   → duplicate, no record
 MANUAL_REVIEW       → record created with Failed
-EXTRACTION_FAILED   → no record (PDF/AI failure)
+EXTRACTION_FAILED   → no record (PDF/AI failure, or no field found)
 TECHNICAL_FAILURE   → unexpected error
 ```
 
@@ -790,7 +790,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 
 תרחישים קריטיים:
 - New client with all required fields → `Success`.
-- Missing any required field → `Failed`, `errorDetails` lists all missing fields.
+- Missing any required field → `Failed`, `errorDetails` lists all missing fields and is returned in the response.
+- No field found in the document → no record, `extraction_failed`.
 - Missing Address/Phone only → `Success`.
 - Duplicate: same Company Name + Email; Company Name only; Email only.
 - Same Company Name + different Email → new record.
@@ -989,5 +990,15 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 
 ### ADR-29: בלי שליחת מיילים בגרסה הראשונה
 **הקשר:** המשתמש החליט שהמיילים יישלחו בהמשך באופן אוטומטי, דרך סוכן שמריץ קונקטור ל-Microsoft 365, ולא כחלק מה-MVP.
-**החלטה:** אין שירות מייל ואין Notification Module. כתובת המייל של ה-Consignee נחלצת ונשמרת כרגיל. טיפול ידני מדווח במסך: `File processed. Manual review required.` לרשומה עם `Failed`, ו-`File could not be processed. Please review the file manually.` לכשל חילוץ מלא.
+**החלטה:** אין שירות מייל ואין Notification Module. כתובת המייל של ה-Consignee נחלצת ונשמרת כרגיל. טיפול ידני מדווח במסך, לפי PRD 4.3.
 **השלכות:** בכשל חילוץ מלא לא נשאר תיעוד במערכת מעבר להודעה במסך ולוג טכני, ולכן המשתמש צריך לטפל בקובץ מיד. כשיתווספו המיילים, הם יחייבו עדכון של ה-PRD ושל מסמך זה.
+
+### ADR-30: הגדרות החילוץ והרצת הבדיקות
+**הקשר:** ברירות המחדל של ה-SDK של OpenAI כוללות ניסיונות חוזרים ושמירת התשובה אצל הספק. בנוסף, `pdfjs-dist` הוא ESM בלבד, וה-Backend הוא CommonJS.
+**החלטה:** הקריאה ל-OpenAI נשלחת עם `store: false`, בלי ניסיונות חוזרים, ועם מגבלת זמן קשיחה של `OPENAI_TIMEOUT_MS`. `OPENAI_MODEL` ו-`OPENAI_EXTRACTION_PROMPT_VERSION` מקבלים ברירת מחדל. PDF עם פחות מ-20 תווים שאינם רווח נחשב PDF בלי טקסט. הטקסט נבנה מחדש לפי מיקום הפריטים בעמוד, עם הזחה ששומרת על עמודות, כי בקובץ HBL אמיתי הכותרת Consignee נפרדה מהערך שלה, והמודל בחר בצד אחר. כללי ה-Prompt הורחבו בעקבות בדיקה על קובצי HBL אמיתיים: פרטי קשר רק מתוך בלוק ה-Consignee, נמל בלי מדינה, Incoterms כקוד בלבד (`FREIGHT COLLECT` אינו Incoterm), FCL או LCL רק כשהם כתובים, ומדינת מוצא רק כשהיא כתובה. הקריאה נשלחת עם `reasoning.effort = low`. PDF.js נטען ב-`import()` דינמי, ובדיקות ה-Backend רצות עם `NODE_OPTIONS=--experimental-vm-modules`, כדי שאפשר יהיה לבדוק אותו.
+**השלכות:** `store: false` לא מבטל את לוגי ניטור השימוש לרעה של OpenAI, שנשמרים עד 30 יום. פקודות הבדיקה של ה-Backend מתאימות ל-macOS ול-Linux. PDF.js בסביבת Vercel נבדק ב-Milestone 5.
+
+### ADR-31: הפרדה במסך ההעלאה בין מידע חלקי לבין כשל חילוץ מלא
+**הקשר:** המשתמש ביקש הודעה ברורה במקום שגיאה כללית, ואפשרות להשלים ידנית שדות חסרים בכרטיס הלקוח.
+**החלטה:** כשחולץ מידע חלקי, הרשומה נשמרת עם `Failed`. ה-Response כולל גם `errorDetails`, ובמסך מוצגים `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**, שפותח את הלקוח במצב עריכה (`?edit=true`). כשלא חולץ דבר, בגלל תקלת תקשורת, כשל AI, PDF בלי טקסט או תשובה בלי אף שדה, לא נוצרת רשומה, ומוצגים `Could not extract information from the file. Please try again.` והכפתור **Try Again**, ששולח שוב את אותו קובץ.
+**השלכות:** תשובה שבה כל 9 השדות ריקים נחשבת כשל חילוץ, ונרשמת בלוג כ-`NO_DATA_EXTRACTED`. בכשל מלא לא נשאר תיעוד במערכת מעבר להודעה במסך ולוג טכני. Try Again שולח את הקובץ שוב ל-OpenAI.

@@ -62,7 +62,13 @@ function LoadingCards() {
 }
 
 // Client Details screen (PRD 4.6, DESIGN 1.3): view, edit and delete one client
-export function ClientDetailsView({ id }: { id: string }) {
+export function ClientDetailsView({
+  id,
+  startInEdit = false,
+}: {
+  id: string;
+  startInEdit?: boolean;
+}) {
   const router = useRouter();
 
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -101,6 +107,8 @@ export function ClientDetailsView({ id }: { id: string }) {
     fetchClient(id, controller.signal).then(
       (loaded) => {
         setClient(loaded);
+        // Arriving from the upload screen to fix a record
+        if (startInEdit) setForm(toFormValues(loaded));
         setLoadState('ready');
       },
       (error: unknown) => {
@@ -109,7 +117,7 @@ export function ClientDetailsView({ id }: { id: string }) {
       },
     );
     return () => controller.abort();
-  }, [id, reloadCount, handleCommonError]);
+  }, [id, startInEdit, reloadCount, handleCommonError]);
 
   const startEdit = (current: Client) => {
     setSaveError(null);

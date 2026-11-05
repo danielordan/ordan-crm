@@ -113,7 +113,7 @@ export function ComponentsPreview() {
           <Alert variant="success">Client added successfully.</Alert>
           <Alert variant="info">Client already exists. No changes were made.</Alert>
           <Alert variant="warning">
-            File processed. Manual review required — details were sent by email.
+            Information was extracted, but some required fields are missing.
           </Alert>
           <Alert variant="error" action={<Button variant="secondary">Try Again</Button>}>
             Something went wrong. Please try again.

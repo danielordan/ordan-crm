@@ -2,8 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Pool } from 'pg';
 import { phoneToDigits } from '../common/text/normalize';
 import { DATABASE_POOL } from '../database/database.constants';
-import type { ClientListRow, ClientRow, ClientUpdate, DuplicateKeys } from './client.types';
+import type { ClientListRow, ClientRow, ClientWrite, DuplicateKeys } from './client.types';
 import { PAGE_SIZE, type ListClientsQuery } from './dto/list-clients.query';
+
+const POSTGRES_UNIQUE_VIOLATION = '23505';
+
+export function isUniqueViolation(error: unknown): boolean {
+  return (error as { code?: unknown } | null)?.code === POSTGRES_UNIQUE_VIOLATION;
+}
 
 export interface SqlQuery {
   text: string;
@@ -111,8 +117,37 @@ export class ClientsRepository {
     return rows[0]?.id ?? null;
   }
 
+  // Returns the new client's ID
+  async create(client: ClientWrite): Promise<string> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `INSERT INTO clients (
+         company_name, company_name_normalized, address, phone, phone_digits, email,
+         email_normalized, origin_port, origin_country, destination_port, incoterms,
+         shipment_type, processing_status, error_details
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING id`,
+      [
+        client.companyName,
+        client.companyNameNormalized,
+        client.address,
+        client.phone,
+        client.phoneDigits,
+        client.email,
+        client.emailNormalized,
+        client.originPort,
+        client.originCountry,
+        client.destinationPort,
+        client.incoterms,
+        client.shipmentType,
+        client.processingStatus,
+        client.errorDetails,
+      ],
+    );
+    return rows[0].id;
+  }
+
   // Returns null when the client no longer exists
-  async update(id: string, client: ClientUpdate): Promise<ClientRow | null> {
+  async update(id: string, client: ClientWrite): Promise<ClientRow | null> {
     const { rows } = await this.pool.query<ClientRow>(
       `UPDATE clients SET
          company_name = $2,

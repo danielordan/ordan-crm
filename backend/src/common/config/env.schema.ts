@@ -3,7 +3,6 @@ import { z } from 'zod';
 const optionalString = z.string().trim().min(1).optional();
 
 // Environment variables from ARCHITECTURE section 19.
-// Variables used by later milestones stay optional until that milestone needs them.
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   BACKEND_API_KEY: z.string().min(16, 'must be at least 16 characters'),
@@ -19,9 +18,9 @@ export const envSchema = z.object({
     .string()
     .regex(/^[a-z_][a-z0-9_]{0,62}$/, 'must be a lowercase Postgres identifier')
     .default('public'),
-  OPENAI_API_KEY: optionalString,
-  OPENAI_MODEL: optionalString,
-  OPENAI_EXTRACTION_PROMPT_VERSION: optionalString,
+  OPENAI_API_KEY: z.string().trim().min(1, 'is required'),
+  OPENAI_MODEL: z.string().trim().min(1).default('gpt-5.4-mini'),
+  OPENAI_EXTRACTION_PROMPT_VERSION: z.string().trim().min(1).default('v4'),
 });
 
 export type Env = z.infer<typeof envSchema>;
