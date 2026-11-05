@@ -46,7 +46,7 @@ The browser only talks to the frontend. Users sign in with Google; the frontend 
    `OPENAI_MODEL` and `OPENAI_EXTRACTION_PROMPT_VERSION` can stay empty; the backend then uses its defaults.
 
 3. Accounts (one-time):
-   - **Supabase:** two projects, `ordan-dev` (local development) and `ordan-prod` (production, Milestone 6). The database SSL certificate (Project Settings → Database → SSL Configuration → Download certificate) is stored in `backend/certs/supabase-ca.crt`; it is public, not a secret.
+   - **Supabase:** two projects, `ordan-dev` (local development) and `ordan-prod` (production, Milestone 6). The database SSL certificate (Project Settings → Database → SSL Configuration → Download certificate) is stored in `backend/src/database/supabase-ca.ts`; it is public, not a secret.
    - **Google OAuth (development):** a Web application client with origin `http://localhost:3000` and redirect URI `http://localhost:3000/api/auth/callback/google`. The consent screen audience is External and published ("In production") so any Google account can sign in.
 
 4. Create the database tables, then add test clients (Development only):
@@ -83,7 +83,7 @@ npm run format:check  # Prettier check (npm run format to fix)
 
 Production runs on two Vercel projects connected to this GitHub repository. Every push to `main` deploys automatically, and Vercel skips a project whose code did not change. There is no Docker and no GitHub Actions.
 
-Production settings live only in Vercel, with the secret values marked Sensitive and limited to the Production environment. They are never stored in this repository or in a local file. Preview deployments get none of them.
+Production settings live only in Vercel, with the secret values stored as Secret and limited to the Production environment. They are never stored in this repository or in a local file. Preview deployments get none of them.
 
 ### Backend project (Root Directory: `backend`)
 

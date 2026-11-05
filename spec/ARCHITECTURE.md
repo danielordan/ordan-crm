@@ -1007,3 +1007,13 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** ב-Milestone 6 הקוד ירוץ לראשונה כ-Vercel Function, ו-Vercel כולל בפריסה רק קבצים שהוא מזהה מראש. בנוסף, סעיף 21 דורש פקודת Migration שלא שומרת את פרטי הגישה ל-Production.
 **החלטה:** `pdf.worker.mjs` של PDF.js נטען ב-`import()` מפורש ונשמר ב-`globalThis.pdfjsWorker`, במקום נתיב שמחושב בזמן ריצה. `@napi-rs/canvas` לא נכלל, כי חילוץ טקסט לא מצייר. ב-`vercel.json` ההגדרות נמצאות תחת המפתח `src/main.ts`. ב-Production ה-Backend מאזין ל-`PORT` כשהוא קיים, ואחרת ל-`API_PORT`. מקומית הוא מתעלם מ-`PORT`, כי הוא עלול להיות מיועד ל-Frontend. ה-Pool ב-Production מוגבל ל-2 חיבורים לכל מופע. `npm run db:migrate:prod` מקבל את ה-Connection String בשדה נסתר, מציג רק את מזהה ה-Project ומבקש אישור. הוא מסרב ל-Development, ל-Transaction pooler, ולמצב שבו `DATABASE_DEV_PROJECT_REF` חסר, ובסיום מדפיס טבלאות, Indexes ומצב RLS.
 **השלכות:** Claude לא מתחבר ל-Production בעצמו, והפלט של הפקודה הוא ההוכחה לתוצאה. אם ייגמרו החיבורים, הפתרון הוא המעבר ל-Transaction pooler שמתואר בסעיף 15.2.
+
+### ADR-33: בלי הגדרת `functions` ב-`vercel.json`, והתעודה בתוך הקוד
+**הקשר:** הפריסה הראשונה נכשלה בשגיאה `[unused_function]`, כי Vercel מקבל ב-`functions` רק קבצים שבתיקייה `api`, והמפתח `src/main.ts` של ADR-32 נדחה. התיעוד של Vercel לא מציין דרך אחרת להגדיר `maxDuration` ו-`includeFiles` באפליקציית NestJS.
+**החלטה:** ההגדרה `functions` מוסרת. תעודת Supabase, שהיא ציבורית, נשמרת בקוד (`backend/src/database/supabase-ca.ts`), ולכן היא תמיד נכללת בפריסה, בלי קריאה מהדיסק. ADR-32 וסעיף 15.2 מוחלפים בנקודה הזו.
+**השלכות:** ה-Backend רץ עם ברירת המחדל של Vercel, 300 שניות, במקום 120 (סעיף 7.5). ה-Frontend עדיין מקבל את התשובה בזמן, כי הקריאה ל-OpenAI מוגבלת ל-60 שניות, ו-Route ההעלאה מוגבל ל-130. אם Supabase יחליף את התעודה, מעדכנים את הקובץ הזה.
+
+### ADR-34: ה-Migration הראשון על Production רץ דרך SQL Editor
+**הקשר:** ההדבקה בשדה הנסתר של `npm run db:migrate:prod` לא הצליחה בטרמינל שבתוך האפליקציה, והמשתמש ביקש ליצור את הטבלאות בעצמו ב-Supabase.
+**החלטה:** חד-פעמית, המשתמש הריץ ב-SQL Editor של `ordan-prod` את התוכן של `001_initial.sql`, כולל יצירת `schema_migrations` ורישום `001_initial` בה. הנוהל של סעיף 21 נשאר ברירת המחדל לעדכונים הבאים.
+**השלכות:** הפקודה תזהה ש-`001_initial` כבר רץ ותדלג עליו.

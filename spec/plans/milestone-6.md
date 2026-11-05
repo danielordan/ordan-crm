@@ -131,12 +131,10 @@ Claude קורא את הפלט ובודק אותו מול `001_initial.sql`:
 
 ## 6. סיכונים שנבדקים בפריסה הראשונה
 
-התיעוד של Vercel לא מפרט איך מגדירים `maxDuration` ו-`includeFiles` באפליקציית NestJS, ולכן המפתח `src/main.ts` ב-`vercel.json` הוא מסקנה שנבדקת רק בפריסה.
+הפריסה הראשונה נכשלה בגלל `functions` ב-`vercel.json`, וההגדרה הוסרה (ADR-33).
 
 | סיכון | הסימן | הטיפול |
 |---|---|---|
-| מפתח `src/main.ts` ב-`vercel.json` לא תואם | הבנייה נכשלת, או שה-Function נעצר לפני 120 שניות | התאמת המפתח לפי הודעת Vercel |
-| קובץ התעודה לא נמצא, כי הנתיב מחושב מהמיקום של הקוד ו-Vercel אורז אותו אחרת | `/health` נכשל, ובלוגים `Database SSL certificate not found` | תיקון הנתיב ב-`pool.ts` |
 | תעודת `ordan-prod` שונה מזו שב-Repository | שגיאת SSL כבר ב-`db:migrate:prod` | בדיקה מול התעודה שבלוח הבקרה, ועצירה לשאלה לפני שינוי |
 | התקנה מתוך Root Directory במבנה workspaces (הספריות מותקנות בשורש) | שגיאת התקנה או `Cannot find module` | בדיקת ההגדרה "Include files outside the root directory", או `installCommand` ב-`vercel.json` |
 | `NODE_ENV` אינו `production` בזמן ריצה, ואז ה-Backend מאזין ל-`API_PORT` | ה-Function לא עונה | בדיקה בלוגים, והתאמת הבחירה ב-`main.ts` |

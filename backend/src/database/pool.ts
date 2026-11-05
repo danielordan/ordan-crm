@@ -1,9 +1,5 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { Pool } from 'pg';
-
-// Supabase Root CA (public), downloaded from the Supabase dashboard (ARCHITECTURE ADR-19)
-export const SUPABASE_CA_PATH = path.resolve(__dirname, '../../certs/supabase-ca.crt');
+import { SUPABASE_CA } from './supabase-ca';
 
 export interface PoolOptions {
   connectionString: string;
@@ -20,19 +16,11 @@ function withoutSslParams(connectionString: string): string {
   return url.toString();
 }
 
-function readCa(): string {
-  try {
-    return readFileSync(SUPABASE_CA_PATH, 'utf8');
-  } catch {
-    throw new Error(`Database SSL certificate not found at backend/certs/supabase-ca.crt`);
-  }
-}
-
 export function createPool({ connectionString, schema, max = 5 }: PoolOptions): Pool {
   const pool = new Pool({
     connectionString: withoutSslParams(connectionString),
     // Encrypted and verified: the server certificate must be signed by the Supabase CA
-    ssl: { ca: readCa(), rejectUnauthorized: true },
+    ssl: { ca: SUPABASE_CA, rejectUnauthorized: true },
     max,
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 30_000,
