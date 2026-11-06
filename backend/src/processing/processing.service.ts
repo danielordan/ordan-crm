@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { toClientWrite } from '../clients/client.mapper';
 import { ClientStatusService } from '../clients/client-status.service';
 import type { ClientFields } from '../clients/client.types';
@@ -27,27 +28,27 @@ type Outcome =
 // document text or the extracted values (ARCHITECTURE 16.7).
 @Injectable()
 export class ProcessingService {
-  private readonly logger = new Logger(ProcessingService.name);
-
   constructor(
+    private readonly logger: PinoLogger,
     private readonly textExtractor: DocumentTextExtractor,
     private readonly dataExtractor: ShipmentDataExtractor,
     private readonly normalizer: ExtractionNormalizerService,
     private readonly duplicates: DuplicateDetectionService,
     private readonly status: ClientStatusService,
     private readonly clients: ClientsRepository,
-  ) {}
+  ) {
+    this.logger.setContext(ProcessingService.name);
+  }
 
   async process(pdf: Buffer): Promise<ProcessingResult> {
-    this.logger.log({ event: 'document_received' });
+    this.logEvent('document_received');
     try {
       const extracted = await this.extract(pdf);
       if (extracted instanceof ExtractionError) {
-        this.logger.warn({
-          event: 'extraction_failed',
-          reason: extracted.category,
-          status: extracted.status,
-        });
+        this.logger.warn(
+          { event: 'extraction_failed', reason: extracted.category, status: extracted.status },
+          'extraction_failed',
+        );
         this.logOutcome('EXTRACTION_FAILED');
         return { result: 'extraction_failed' };
       }
@@ -61,9 +62,9 @@ export class ProcessingService {
   private async extract(pdf: Buffer): Promise<ClientFields | ExtractionError> {
     try {
       const text = await this.textExtractor.extract(pdf);
-      this.logger.log({ event: 'pdf_text_extracted' });
+      this.logEvent('pdf_text_extracted');
       const data = await this.dataExtractor.extract(text);
-      this.logger.log({ event: 'ai_extraction_completed' });
+      this.logEvent('ai_extraction_completed');
       const fields = this.normalizer.normalize(data);
       // Nothing was found, so there is nothing to save or to complete (ADR-31)
       if (Object.values(fields).every((value) => value === null)) {
@@ -89,7 +90,7 @@ export class ProcessingService {
       throw error;
     }
 
-    this.logger.log({ event: 'client_created', clientId });
+    this.logEvent('client_created', { clientId });
     if (clientStatus.processingStatus === 'Success') {
       this.logOutcome('AUTO_SUCCESS');
       return { result: 'created', processingStatus: 'Success', clientId };
@@ -104,12 +105,17 @@ export class ProcessingService {
   }
 
   private duplicate(): ProcessingResult {
-    this.logger.log({ event: 'duplicate_detected' });
+    this.logEvent('duplicate_detected');
     this.logOutcome('DUPLICATE_SKIPPED');
     return { result: 'duplicate' };
   }
 
   private logOutcome(outcome: Outcome): void {
-    this.logger.log({ event: 'processing_outcome', outcome });
+    this.logEvent('processing_outcome', { outcome });
+  }
+
+  // The event name is also the message, so it can be found by searching the Vercel logs
+  private logEvent(event: string, fields: Record<string, string> = {}): void {
+    this.logger.info({ event, ...fields }, event);
   }
 }

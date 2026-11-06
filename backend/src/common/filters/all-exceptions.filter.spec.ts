@@ -1,4 +1,5 @@
-import { ArgumentsHost, ConflictException, Logger, NotFoundException } from '@nestjs/common';
+import { ArgumentsHost, ConflictException, NotFoundException } from '@nestjs/common';
+import type { PinoLogger } from 'nestjs-pino';
 import { AllExceptionsFilter } from './all-exceptions.filter';
 
 function run(exception: unknown) {
@@ -15,7 +16,10 @@ function run(exception: unknown) {
   const host = {
     switchToHttp: () => ({ getRequest: () => ({ id: 'req-1' }), getResponse: () => response }),
   } as unknown as ArgumentsHost;
-  new AllExceptionsFilter().catch(exception, host);
+  new AllExceptionsFilter({
+    error: jest.fn(),
+    setContext: jest.fn(),
+  } as unknown as PinoLogger).catch(exception, host);
   return res;
 }
 
@@ -37,7 +41,6 @@ describe('AllExceptionsFilter', () => {
   });
 
   it('hides details of unexpected errors', () => {
-    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
     const res = run(new Error('connection string mongodb://secret leaked'));
     expect(res.statusCode).toBe(500);
     expect(res.body).toEqual({

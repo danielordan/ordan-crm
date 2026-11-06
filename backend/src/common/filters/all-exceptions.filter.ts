@@ -1,12 +1,6 @@
-import {
-  ArgumentsHost,
-  Catch,
-  ExceptionFilter,
-  HttpException,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { PinoLogger } from 'nestjs-pino';
 
 interface ErrorBody {
   error: string;
@@ -31,7 +25,9 @@ function safeMessage(response: string | object, fallback: string): string {
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AllExceptionsFilter.name);
+  constructor(private readonly logger: PinoLogger) {
+    this.logger.setContext(AllExceptionsFilter.name);
+  }
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();

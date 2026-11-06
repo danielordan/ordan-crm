@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { PinoLogger } from 'nestjs-pino';
 import type { Pool } from 'pg';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -269,8 +269,8 @@ describe('POST /api/v1/documents/process (e2e)', () => {
   describe('logs', () => {
     function captureLogs() {
       const entries: unknown[] = [];
-      for (const level of ['log', 'warn', 'error', 'debug'] as const) {
-        jest.spyOn(Logger.prototype, level).mockImplementation((...args: unknown[]) => {
+      for (const level of ['info', 'warn', 'error', 'debug'] as const) {
+        jest.spyOn(PinoLogger.prototype, level).mockImplementation((...args: unknown[]) => {
           entries.push(args[0]);
         });
       }
