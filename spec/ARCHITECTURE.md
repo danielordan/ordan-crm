@@ -1021,4 +1021,4 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 ### ADR-35: רישום אירועים ישירות דרך `PinoLogger`
 **הקשר:** ב-Smoke test ב-Production נמצאה ב-Vercel הרשומה `request completed`, אבל לא נמצאו `client_created` ו-`processing_outcome`, שנכתבו דרך `Logger` של NestJS. מקומית כל הרשומות נכתבו. הסיבה המדויקת ב-Vercel לא אותרה.
 **החלטה:** `ProcessingService`, `UsersService` ו-`AllExceptionsFilter` כותבים דרך `PinoLogger` של `nestjs-pino`, בלי המעבר דרך `Logger` של NestJS. לאירועים יש גם טקסט הודעה זהה לשם האירוע, כדי שיהיה אפשר לחפש אותם ב-Logs של Vercel.
-**השלכות:** הודעות ההפעלה של NestJS נשארות כפי שהיו, ואולי לא יופיעו ב-Vercel. התיקון נבדק מקומית, ונחשב מאומת רק אחרי שהרשומות מופיעות ב-Vercel.
+**השלכות:** הודעות ההפעלה של NestJS נשארות כפי שהיו, ואולי לא יופיעו ב-Vercel. התיקון אומת ב-Production: `client_created` ו-`processing_outcome` מופיעים ב-Logs של Vercel וניתנים לחיפוש.
