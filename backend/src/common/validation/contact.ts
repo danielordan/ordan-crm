@@ -2,6 +2,9 @@
 // rules in lib/contact-validation.ts, to show messages next to the fields.
 
 const PHONE = /^[\d\s+\-()]+$/;
+
+// A letter from any alphabet other than English (Hebrew, Cyrillic, accented letters, etc.)
+const NON_ENGLISH_LETTER = /[^\P{L}A-Za-z]/u;
 const MIN_PHONE_DIGITS = 7;
 
 const EMAIL_LOCAL = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i;
@@ -70,4 +73,10 @@ export function isValidEmail(value: string): boolean {
 export function isValidPhone(value: string): boolean {
   const phone = value.trim();
   return PHONE.test(phone) && phone.replace(/\D/g, '').length >= MIN_PHONE_DIGITS;
+}
+
+// Edited values must be written in English: any letter outside A-Z is rejected (ADR-36).
+// Digits, spaces and punctuation are allowed.
+export function isEnglishText(value: string): boolean {
+  return !NON_ENGLISH_LETTER.test(value);
 }

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { isValidEmail, isValidPhone } from '../common/validation/contact';
+import { isEnglishText, isValidEmail, isValidPhone } from '../common/validation/contact';
 import { toClient, toClientFields, toClientListItem, toClientWrite } from './client.mapper';
 import { ClientStatusService } from './client-status.service';
 import type { Client, ClientFields, ClientListResponse, ClientRow } from './client.types';
@@ -20,17 +20,36 @@ function duplicateClient(): ConflictException {
   });
 }
 
+// Free-text fields and their database columns, for the English-only check (ADR-36)
+const TEXT_FIELDS = [
+  ['companyName', 'company_name'],
+  ['address', 'address'],
+  ['phone', 'phone'],
+  ['email', 'email'],
+  ['originPort', 'origin_port'],
+  ['originCountry', 'origin_country'],
+  ['destinationPort', 'destination_port'],
+  ['incoterms', 'incoterms'],
+] as const;
+
 // Only a changed value is checked, so an old or extracted value that does not fit the format
 // never blocks fixing another field (ARCHITECTURE ADR-27). Empty is allowed.
 function assertValidContactFields(changes: UpdateClientDto, current: ClientRow): void {
   const invalid: string[] = [];
+  for (const [field, column] of TEXT_FIELDS) {
+    const value = changes[field];
+    if (value && value !== current[column] && !isEnglishText(value)) invalid.push(field);
+  }
   if (changes.email && changes.email !== current.email && !isValidEmail(changes.email)) {
     invalid.push('email');
   }
   if (changes.phone && changes.phone !== current.phone && !isValidPhone(changes.phone)) {
     invalid.push('phone');
   }
-  if (invalid.length) throw new BadRequestException(`Invalid value for: ${invalid.join(', ')}.`);
+  if (invalid.length) {
+    const fields = [...new Set(invalid)].join(', ');
+    throw new BadRequestException(`Invalid value for: ${fields}.`);
+  }
 }
 
 @Injectable()

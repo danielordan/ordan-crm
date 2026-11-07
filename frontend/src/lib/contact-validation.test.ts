@@ -1,7 +1,9 @@
 import { toFormValues, type Client } from './client-details';
 import {
   INVALID_EMAIL,
+  ENGLISH_ONLY,
   INVALID_PHONE,
+  isEnglishText,
   isValidEmail,
   isValidPhone,
   suggestEmail,
@@ -123,5 +125,34 @@ describe('validateContactFields', () => {
 
   it('does not report an unchanged old value', () => {
     expect(validateContactFields(form, client)).toEqual({});
+  });
+});
+
+describe('isEnglishText', () => {
+  it.each(['ABC Logistics Ltd.', '123 Port St, New York', 'FOB', '+1 (212) 555-0100', ''])(
+    'accepts %s',
+    (value) => {
+      expect(isEnglishText(value)).toBe(true);
+    },
+  );
+
+  it.each(['חברה בע"מ', 'Москва', 'Zürich', 'São Paulo', 'Port 上海'])('rejects %s', (value) => {
+    expect(isEnglishText(value)).toBe(false);
+  });
+});
+
+describe('validateContactFields: English only', () => {
+  it('reports changed text that is not in English', () => {
+    expect(
+      validateContactFields(
+        { ...form, companyName: 'חברה', originCountry: 'Türkiye', email: 'שם@gmail.com' },
+        client,
+      ),
+    ).toEqual({ companyName: ENGLISH_ONLY, originCountry: ENGLISH_ONLY, email: ENGLISH_ONLY });
+  });
+
+  it('does not report an unchanged old value that is not in English', () => {
+    const old = { ...client, address: 'רחוב הנמל 1' };
+    expect(validateContactFields({ ...form, address: 'רחוב הנמל 1' }, old)).toEqual({});
   });
 });

@@ -474,7 +474,7 @@ PATCH /api/v1/clients/:id
 
 Editable fields: `companyName`, `address`, `phone`, `email`, `originPort`, `originCountry`, `destinationPort`, `incoterms`, `shipmentType`.
 
-- אין ולידציה של פורמט, מלבד ש-`shipmentType` חייב להיות `FCL`, `LCL` או `null`, ומלבד בדיקה בסיסית של `email` ו-`phone` כשהערך שונה (ADR-27). ערך לא תקין מחזיר `400`.
+- אין ולידציה של פורמט, מלבד ש-`shipmentType` חייב להיות `FCL`, `LCL` או `null`, ומלבד בדיקה בסיסית של `email` ו-`phone` כשהערך שונה (ADR-27), ובדיקה ששדות הטקסט ששונו כתובים באנגלית בלבד (ADR-36). ערך לא תקין מחזיר `400`.
 - ה-Backend מעדכן את השדות המנורמלים ומחשב מחדש את `processingStatus` ואת `errorDetails` (סעיף 9.1).
 - כפילות מחזירה `409` עם `{ "error": "DUPLICATE_CLIENT" }`.
 
@@ -1022,3 +1022,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** ב-Smoke test ב-Production נמצאה ב-Vercel הרשומה `request completed`, אבל לא נמצאו `client_created` ו-`processing_outcome`, שנכתבו דרך `Logger` של NestJS. מקומית כל הרשומות נכתבו. הסיבה המדויקת ב-Vercel לא אותרה.
 **החלטה:** `ProcessingService`, `UsersService` ו-`AllExceptionsFilter` כותבים דרך `PinoLogger` של `nestjs-pino`, בלי המעבר דרך `Logger` של NestJS. לאירועים יש גם טקסט הודעה זהה לשם האירוע, כדי שיהיה אפשר לחפש אותם ב-Logs של Vercel.
 **השלכות:** הודעות ההפעלה של NestJS נשארות כפי שהיו, ואולי לא יופיעו ב-Vercel. התיקון אומת ב-Production: `client_created` ו-`processing_outcome` מופיעים ב-Logs של Vercel וניתנים לחיפוש.
+
+### ADR-36: שדות טקסט בעריכה — אנגלית בלבד
+**הקשר:** המשתמש ביקש שבעריכת לקוח יהיה אפשר לכתוב רק באנגלית.
+**החלטה:** בעת Save, כל שדה טקסט ששונה (כל השדות מלבד Shipment Type) נדחה אם יש בו אות שאינה A–Z, לפי הביטוי `/[^\P{L}A-Za-z]/u`. ספרות, רווחים וסימני פיסוק מותרים. הבדיקה קיימת גם ב-Frontend (`lib/contact-validation.ts`, הודעה `Use English characters only.` ליד השדה) וגם ב-Backend (`common/validation/contact.ts`, `400` עם `Invalid value for: ...`). כמו ב-ADR-27, ערך שלא שונה לא נבדק.
+**השלכות:** ערכים שחולצו מה-PDF בשפה אחרת נשמרים כפי שהם ולא חוסמים עריכה של שדות אחרים, אבל כדי לשנות אותם צריך לכתוב אותם באנגלית. גם אותיות עם סימנים (למשל `Zürich`) נחסמות.

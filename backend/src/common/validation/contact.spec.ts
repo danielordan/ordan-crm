@@ -1,4 +1,4 @@
-import { isValidEmail, isValidPhone, suggestEmail } from './contact';
+import { isEnglishText, isValidEmail, isValidPhone, suggestEmail } from './contact';
 
 describe('isValidEmail', () => {
   it.each([
@@ -75,4 +75,17 @@ describe('isValidPhone', () => {
       expect(isValidPhone(value)).toBe(false);
     },
   );
+});
+
+describe('isEnglishText', () => {
+  it.each(['ABC Logistics Ltd.', '123 Port St, New York', 'FOB', '+1 (212) 555-0100', ''])(
+    'accepts %s',
+    (value) => {
+      expect(isEnglishText(value)).toBe(true);
+    },
+  );
+
+  it.each(['חברה בע"מ', 'Москва', 'Zürich', 'São Paulo', 'Port 上海'])('rejects %s', (value) => {
+    expect(isEnglishText(value)).toBe(false);
+  });
 });

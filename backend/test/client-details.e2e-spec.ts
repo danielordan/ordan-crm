@@ -117,6 +117,26 @@ describe('/api/v1/clients/:id (e2e)', () => {
     });
   });
 
+  describe('PATCH: English only', () => {
+    it.each([
+      [{ companyName: 'חברה בע"מ' }, 'companyName'],
+      [{ originCountry: 'Türkiye' }, 'originCountry'],
+      [{ address: 'Москва 1', incoterms: 'FOB' }, 'address'],
+    ])('rejects %j without saving anything', async (body, fields) => {
+      const [client] = await seed(testClient({ originPort: 'Old' }));
+      const res = await patch(client.id, { originPort: 'New', ...body }).expect(400);
+      expect(res.body.message).toBe(`Invalid value for: ${fields}.`);
+      expect((await get(client.id)).body).toMatchObject({ originPort: 'Old' });
+    });
+
+    it('does not block other edits because of an old value in another language', async () => {
+      const [client] = await seed(testClient({ address: 'רחוב הנמל 1' }));
+      const res = await patch(client.id, { address: 'רחוב הנמל 1', originPort: 'Haifa' });
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({ address: 'רחוב הנמל 1', originPort: 'Haifa' });
+    });
+  });
+
   describe('PATCH: email and phone format', () => {
     it.each([
       [{ email: 'abc' }, 'email'],

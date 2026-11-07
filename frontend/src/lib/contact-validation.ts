@@ -4,6 +4,9 @@ import type { Client, ClientField, ClientFormValues } from './client-details';
 // same rules in common/validation/contact.ts; here they give a message next to the field.
 
 const PHONE = /^[\d\s+\-()]+$/;
+
+// A letter from any alphabet other than English (Hebrew, Cyrillic, accented letters, etc.)
+const NON_ENGLISH_LETTER = /[^\P{L}A-Za-z]/u;
 const MIN_PHONE_DIGITS = 7;
 
 const EMAIL_LOCAL = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*$/i;
@@ -71,6 +74,23 @@ export function isValidEmail(value: string): boolean {
 
 export const INVALID_EMAIL = 'Enter a valid email address.';
 export const INVALID_PHONE = 'Enter a valid phone number.';
+export const ENGLISH_ONLY = 'Use English characters only.';
+
+// Edited values must be written in English: any letter outside A-Z is rejected (ADR-36)
+export function isEnglishText(value: string): boolean {
+  return !NON_ENGLISH_LETTER.test(value);
+}
+
+const TEXT_FIELDS: ClientField[] = [
+  'companyName',
+  'address',
+  'phone',
+  'email',
+  'originPort',
+  'originCountry',
+  'destinationPort',
+  'incoterms',
+];
 
 export type FieldErrors = Partial<Record<ClientField, string>>;
 
@@ -82,13 +102,17 @@ export function isValidPhone(value: string): boolean {
 // Only a changed, non-empty value is checked, so an old value never blocks other edits
 export function validateContactFields(values: ClientFormValues, client: Client): FieldErrors {
   const errors: FieldErrors = {};
-  const changed = (field: 'email' | 'phone') =>
+  const changed = (field: ClientField) =>
     values[field].trim() !== '' && values[field] !== (client[field] ?? '');
 
-  if (changed('email') && !isValidEmail(values.email)) {
+  for (const field of TEXT_FIELDS) {
+    if (changed(field) && !isEnglishText(values[field])) errors[field] = ENGLISH_ONLY;
+  }
+  if (!errors.email && changed('email') && !isValidEmail(values.email)) {
     const suggestion = suggestEmail(values.email);
     errors.email = suggestion ? `Did you mean ${suggestion}?` : INVALID_EMAIL;
   }
-  if (changed('phone') && !isValidPhone(values.phone)) errors.phone = INVALID_PHONE;
+  if (!errors.phone && changed('phone') && !isValidPhone(values.phone))
+    errors.phone = INVALID_PHONE;
   return errors;
 }
