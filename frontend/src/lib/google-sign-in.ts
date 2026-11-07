@@ -7,18 +7,22 @@ interface GoogleProfile {
   name?: string | null;
 }
 
-// Decides whether a Google sign-in may continue. Only users that were registered in the
-// backend get a session (PRD 4.1); any failure denies the sign-in.
-export async function allowGoogleSignIn(
+// Registers a Google sign-in in the backend and returns the user's internal ID. Only users
+// that were registered get a session (PRD 4.1); any failure returns null and denies the sign-in.
+export async function registerGoogleSignIn(
   profile: GoogleProfile | undefined,
-  register: (user: GoogleUser) => Promise<void>,
-): Promise<boolean> {
-  if (!profile?.sub || !profile.email || profile.email_verified === false) return false;
+  register: (user: GoogleUser) => Promise<{ id: string }>,
+): Promise<string | null> {
+  if (!profile?.sub || !profile.email || profile.email_verified === false) return null;
   try {
-    await register({ googleId: profile.sub, email: profile.email, name: profile.name ?? null });
-    return true;
+    const user = await register({
+      googleId: profile.sub,
+      email: profile.email,
+      name: profile.name ?? null,
+    });
+    return user.id;
   } catch (error) {
     console.error('Google sign-in registration failed', { error: String(error) });
-    return false;
+    return null;
   }
 }

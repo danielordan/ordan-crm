@@ -679,6 +679,8 @@ Missing required fields: Email, Incoterms.
 
 - Structured JSON logs.
 - אירועים: `document_received`, `pdf_text_extracted`, `ai_extraction_completed`, `extraction_failed`, `duplicate_detected`, `client_created`.
+- אירועי משתמשים: `user_registered`, `user_signed_in`, `password_sign_in_failed`. אירועי עריכה ומחיקה: `client_updated` (עם `clientId`, `changedFields` — שמות השדות בלבד, בלי הערכים — ו-`processingStatus`) ו-`client_deleted` (עם `clientId`).
+- **מי ביצע את הפעולה:** שרת ה-Next.js שולח בכל בקשה ל-Backend את הכותרת `X-User-Id` עם ה-`users.id` של המשתמש המחובר (נשמר ב-session). ה-Backend מוסיף `userId` לכל שורת לוג של הבקשה: צפייה ברשימה ובלקוח, עריכה, מחיקה והעלאה. רק UUID תקין מתקבל. כדי לדעת מי המשתמש, מחפשים את ה-`userId` בטבלת `users` (ADR-38).
 - אין לשמור באירועים את תוכן המסמך.
 - Logs זמינים ב-Runtime Logs של Vercel. הם נשמרים שעה אחת ב-Hobby ויום אחד ב-Pro.
 
@@ -1065,3 +1067,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** המשתמש ביקש להוסיף כניסה עם שם משתמש וסיסמה, עם מסך הרשמה עצמית ושם משתמש חופשי (לא מייל), ולעצב מחדש את רקע מסך הכניסה. עד עכשיו המערכת לא שמרה סיסמאות (ADR-18).
 **החלטה:** Auth.js Credentials provider לצד Google, באותו JWT session. ה-Backend מקבל שני endpoints פנימיים: `POST /api/v1/users/register` ו-`POST /api/v1/users/password-sign-in`. הסיסמה נשמרת כ-Hash של `scrypt` המובנה ב-Node (`node:crypto`), עם salt אקראי ובלי תלות חיצונית; ההשוואה ב-`timingSafeEqual`, ובדיקת Hash מדומה כשהמשתמש לא קיים. שם המשתמש נשמר באותיות קטנות עם Unique partial index. Migration `002_password_users.sql` הופך את `google_id` ו-`email` ל-nullable, מוסיף `username` ו-`password_hash`, ו-`CHECK` שלכל משתמש יש דרך כניסה אחת לפחות. מסכי Sign In ו-Create Account חולקים רכיב `AuthLayout` עם רקע Navy, כתמי Teal, רשת נקודות וגלים.
 **השלכות:** המערכת שומרת עכשיו Hash של סיסמאות (לא סיסמאות גלויות). אין שחזור סיסמה, שינוי סיסמה או נעילה אחרי ניסיונות כושלים; ה-Rate limit הכולל של ה-Backend הוא ההגנה היחידה מפני ניחוש. על Production, המשתמש הריץ את `002_password_users.sql` (כולל רישום ב-`schema_migrations`) ב-SQL Editor של `ordan-prod` לפני הפריסה, כמו ב-ADR-34. ADR-18 נשאר בתוקף לכניסה עם Google.
+
+### ADR-38: המשתמש המחובר בכל שורת לוג
+**הקשר:** המשתמש ביקש לראות בלוגים מי התחבר ואילו פעולות כל משתמש ביצע. עד עכשיו ה-Backend לא ידע מי שלח את הבקשה, כי ה-Next.js העביר רק את מפתח ה-API.
+**החלטה:** ה-session של Auth.js שומר את `users.id` הפנימי (`token.userId`). בכניסה עם Google, ה-ID שמוחזר מ-`google-sign-in` מחליף את ה-ID של Google באובייקט `user` שבתוך ה-callback `signIn` (בלי Database adapter, Auth.js מעביר את אותו אובייקט ל-callback `jwt`). `proxyToBackend` שולח את ה-ID בכותרת `X-User-Id`, ו-`pino-http` (`customProps`) מוסיף `userId` לכל שורת לוג של הבקשה. `ClientsService` רושם `client_updated` עם שמות השדות ששונו, ו-`client_deleted`. לא נרשמים שם משתמש, מייל או ערכי שדות של לקוחות.
+**השלכות:** session שנוצר לפני השינוי לא כולל ID, והבקשות שלו נרשמות בלי `userId` עד יציאה וכניסה מחדש (או עד שה-session יפוג). ה-Backend סומך על הכותרת כי רק מי שמחזיק במפתח ה-API מגיע אליו. ב-Vercel Hobby הלוגים נשמרים שעה אחת בלבד, ולכן זה לא תחליף להיסטוריית שינויים קבועה; היסטוריה כזו תדרוש טבלה ב-Database. ההחלפה של ה-ID ב-callback `signIn` תלויה בהתנהגות של `next-auth@5.0.0-beta.32`, ויש לבדוק אותה מחדש בעדכון גרסה.

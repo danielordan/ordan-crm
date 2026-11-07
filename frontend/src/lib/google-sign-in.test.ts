@@ -1,7 +1,7 @@
-import { allowGoogleSignIn } from './google-sign-in';
+import { registerGoogleSignIn } from './google-sign-in';
 
-describe('allowGoogleSignIn', () => {
-  const register = vi.fn<(user: object) => Promise<void>>();
+describe('registerGoogleSignIn', () => {
+  const register = vi.fn<(user: object) => Promise<{ id: string }>>();
   const profile = { sub: 'g-123', email: 'dana@example.com', email_verified: true, name: 'Dana' };
 
   beforeEach(() => {
@@ -9,9 +9,9 @@ describe('allowGoogleSignIn', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
-  it('registers the user in the backend and allows the sign-in', async () => {
-    register.mockResolvedValue();
-    await expect(allowGoogleSignIn(profile, register)).resolves.toBe(true);
+  it('registers the user in the backend and returns the internal user ID', async () => {
+    register.mockResolvedValue({ id: 'user-1' });
+    await expect(registerGoogleSignIn(profile, register)).resolves.toBe('user-1');
     expect(register).toHaveBeenCalledWith({
       googleId: 'g-123',
       email: 'dana@example.com',
@@ -21,7 +21,7 @@ describe('allowGoogleSignIn', () => {
 
   it('denies the sign-in when registration fails', async () => {
     register.mockRejectedValue(new Error('backend down'));
-    await expect(allowGoogleSignIn(profile, register)).resolves.toBe(false);
+    await expect(registerGoogleSignIn(profile, register)).resolves.toBeNull();
   });
 
   it.each([
@@ -30,7 +30,7 @@ describe('allowGoogleSignIn', () => {
     { ...profile, email: null },
     { ...profile, email_verified: false },
   ])('denies an incomplete or unverified profile %#', async (value) => {
-    await expect(allowGoogleSignIn(value, register)).resolves.toBe(false);
+    await expect(registerGoogleSignIn(value, register)).resolves.toBeNull();
     expect(register).not.toHaveBeenCalled();
   });
 });

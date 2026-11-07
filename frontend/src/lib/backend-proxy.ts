@@ -1,4 +1,5 @@
 import 'server-only';
+import { currentUserId } from './session-user';
 
 const GENERIC_MESSAGE = 'Something went wrong. Please try again.';
 
@@ -20,6 +21,9 @@ export async function proxyToBackend(request: Request, backendPath: string): Pro
   target.search = new URL(request.url).search;
 
   const headers = new Headers({ 'X-API-Key': apiKey, 'X-Request-Id': crypto.randomUUID() });
+  // Who made the request, so the backend logs can show it (ADR-38)
+  const userId = await currentUserId();
+  if (userId) headers.set('X-User-Id', userId);
   const contentType = request.headers.get('content-type');
   if (contentType) headers.set('Content-Type', contentType);
 

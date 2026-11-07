@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { DELETE, GET, PATCH } from './route';
 
+const currentUserId = vi.hoisted(() => vi.fn<() => Promise<string | undefined>>());
+vi.mock('@/lib/session-user', () => ({ currentUserId }));
+
 const ID = '00000000-0000-4000-8000-000000000001';
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -12,6 +15,8 @@ describe('/api/clients/[id]', () => {
     vi.stubEnv('BACKEND_API_KEY', 'server-side-key');
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
+    currentUserId.mockReset();
+    currentUserId.mockResolvedValue(undefined);
     fetchMock.mockImplementation(() => Promise.resolve(Response.json({ ok: true })));
   });
 

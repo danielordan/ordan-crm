@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { isEnglishText, isValidEmail, isValidPhone } from '../common/validation/contact';
 import { toClient, toClientFields, toClientListItem, toClientWrite } from './client.mapper';
 import { ClientStatusService } from './client-status.service';
@@ -52,13 +53,23 @@ function assertValidContactFields(changes: UpdateClientDto, current: ClientRow):
   }
 }
 
+// Names of the fields whose value really changed. Only names are logged, never values.
+export function changedFieldNames(changes: UpdateClientDto, current: ClientFields): string[] {
+  return (Object.keys(changes) as (keyof ClientFields)[]).filter(
+    (key) => changes[key] !== current[key],
+  );
+}
+
 @Injectable()
 export class ClientsService {
   constructor(
+    private readonly logger: PinoLogger,
     private readonly clients: ClientsRepository,
     private readonly status: ClientStatusService,
     private readonly duplicates: DuplicateDetectionService,
-  ) {}
+  ) {
+    this.logger.setContext(ClientsService.name);
+  }
 
   async list(query: ListClientsQuery): Promise<ClientListResponse> {
     const rows = await this.clients.list(query);
@@ -81,7 +92,8 @@ export class ClientsService {
     if (!current) throw new NotFoundException('Client not found.');
     assertValidContactFields(changes, current);
 
-    const fields: ClientFields = { ...toClientFields(current), ...changes };
+    const before = toClientFields(current);
+    const fields: ClientFields = { ...before, ...changes };
     const write = toClientWrite(fields, this.status.compute(fields));
 
     // Only an edit of the name or email can create a duplicate (PRD 4.6, ARCHITECTURE ADR-26)
@@ -95,6 +107,15 @@ export class ClientsService {
     try {
       const updated = await this.clients.update(id, write);
       if (!updated) throw new NotFoundException('Client not found.');
+      this.logger.info(
+        {
+          event: 'client_updated',
+          clientId: id,
+          changedFields: changedFieldNames(changes, before),
+          processingStatus: updated.processing_status,
+        },
+        'client_updated',
+      );
       return toClient(updated);
     } catch (error) {
       // Two simultaneous saves can both pass the check above; the unique index decides (11.5)
@@ -106,5 +127,6 @@ export class ClientsService {
   async delete(id: string): Promise<void> {
     const deleted = await this.clients.delete(id);
     if (!deleted) throw new NotFoundException('Client not found.');
+    this.logger.info({ event: 'client_deleted', clientId: id }, 'client_deleted');
   }
 }

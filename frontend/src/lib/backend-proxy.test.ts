@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { proxyToBackend } from './backend-proxy';
 
+const currentUserId = vi.hoisted(() => vi.fn<() => Promise<string | undefined>>());
+vi.mock('@/lib/session-user', () => ({ currentUserId }));
+
 describe('proxyToBackend', () => {
   const fetchMock = vi.fn<typeof fetch>();
 
@@ -10,6 +13,8 @@ describe('proxyToBackend', () => {
     vi.stubGlobal('fetch', fetchMock);
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     fetchMock.mockReset();
+    currentUserId.mockReset();
+    currentUserId.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -39,6 +44,18 @@ describe('proxyToBackend', () => {
     expect(headers.get('Cookie')).toBeNull();
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: 'ok' });
+  });
+
+  it('sends the signed-in user ID, and none without one', async () => {
+    fetchMock.mockResolvedValue(Response.json({}));
+    currentUserId.mockResolvedValue('811953f5-f9dc-4754-86f0-1adb7102a44a');
+    await proxyToBackend(new Request('http://localhost/api/clients'), '/api/v1/clients');
+    expect(lastCall().headers.get('X-User-Id')).toBe('811953f5-f9dc-4754-86f0-1adb7102a44a');
+
+    fetchMock.mockClear();
+    currentUserId.mockResolvedValue(undefined);
+    await proxyToBackend(new Request('http://localhost/api/clients'), '/api/v1/clients');
+    expect(lastCall().headers.get('X-User-Id')).toBeNull();
   });
 
   it('forwards method, body and content type', async () => {

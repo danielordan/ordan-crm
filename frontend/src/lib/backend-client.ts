@@ -32,10 +32,12 @@ function postToUsers(path: string, body: object): Promise<Response> {
   });
 }
 
-// Registers (or updates) the Google user in the backend `users` table
-export async function registerGoogleUser(user: GoogleUser): Promise<void> {
+// Registers (or updates) the Google user in the backend `users` table; returns its internal ID
+export async function registerGoogleUser(user: GoogleUser): Promise<{ id: string }> {
   const response = await postToUsers('google-sign-in', user);
   if (!response.ok) throw new Error(`User registration failed with status ${response.status}`);
+  const { id } = (await response.json()) as BackendUser;
+  return { id };
 }
 
 // Creates a username + password user. Returns 'taken' when the username already exists.

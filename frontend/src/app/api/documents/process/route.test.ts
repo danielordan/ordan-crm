@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { maxDuration, POST } from './route';
 
+const currentUserId = vi.hoisted(() => vi.fn<() => Promise<string | undefined>>());
+vi.mock('@/lib/session-user', () => ({ currentUserId }));
+
 describe('/api/documents/process', () => {
   const fetchMock = vi.fn<typeof fetch>();
 
@@ -9,6 +12,8 @@ describe('/api/documents/process', () => {
     vi.stubEnv('BACKEND_API_KEY', 'server-side-key');
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
+    currentUserId.mockReset();
+    currentUserId.mockResolvedValue(undefined);
     fetchMock.mockImplementation(() => Promise.resolve(Response.json({ result: 'duplicate' })));
   });
 
