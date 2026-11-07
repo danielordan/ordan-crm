@@ -10,7 +10,7 @@ frontend/  Next.js app (browser UI + secure proxy to the backend) — runs on ht
 spec/      PRD, architecture, design and milestones
 ```
 
-The browser only talks to the frontend. Users sign in with Google; the frontend then calls the backend server-to-server with a secret API key. The backend stores data in a Supabase (PostgreSQL) database.
+The browser only talks to the frontend. Users sign in with a username and password (self sign-up at `/sign-up`) or with Google; the frontend then calls the backend server-to-server with a secret API key. The backend stores data in a Supabase (PostgreSQL) database.
 
 ## Requirements
 
@@ -64,7 +64,7 @@ The browser only talks to the frontend. Users sign in with Google; the frontend 
 npm run dev
 ```
 
-This starts both apps. Open <http://localhost:3000> and sign in with Google. Stop with `Ctrl+C`.
+This starts both apps. Open <http://localhost:3000> and sign in with Google, or create an account with a username and password. Stop with `Ctrl+C`.
 
 Useful local addresses:
 

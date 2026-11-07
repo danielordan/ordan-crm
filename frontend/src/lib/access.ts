@@ -1,9 +1,10 @@
 // Which requests need a session, and what happens without one (ARCHITECTURE 5.1, 16.1)
 
 const PUBLIC_PREFIXES = ['/api/auth/', '/_next/'];
-const PUBLIC_PATHS = ['/sign-in', '/favicon.ico', '/icon.svg', '/robots.txt'];
+const PUBLIC_PATHS = ['/sign-in', '/sign-up', '/favicon.ico', '/icon.svg', '/robots.txt'];
 
 export const SIGN_IN_PATH = '/sign-in';
+export const SIGN_UP_PATH = '/sign-up';
 export const HOME_PATH = '/clients';
 
 export function isPublicPath(pathname: string): boolean {
@@ -14,7 +15,7 @@ export type AccessDecision =
   { type: 'allow' } | { type: 'unauthorized' } | { type: 'redirect'; location: string };
 
 export function decideAccess(pathname: string, search: string, signedIn: boolean): AccessDecision {
-  if (pathname === SIGN_IN_PATH) {
+  if (pathname === SIGN_IN_PATH || pathname === SIGN_UP_PATH) {
     return signedIn ? { type: 'redirect', location: HOME_PATH } : { type: 'allow' };
   }
   if (signedIn || isPublicPath(pathname)) return { type: 'allow' };

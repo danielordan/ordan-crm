@@ -1,10 +1,14 @@
 import { decideAccess, isPublicPath, safeCallbackUrl } from './access';
 
 describe('isPublicPath', () => {
-  it.each(['/sign-in', '/api/auth/session', '/_next/static/a.js', '/favicon.ico', '/icon.svg'])(
-    '%s is public',
-    (path) => expect(isPublicPath(path)).toBe(true),
-  );
+  it.each([
+    '/sign-in',
+    '/sign-up',
+    '/api/auth/session',
+    '/_next/static/a.js',
+    '/favicon.ico',
+    '/icon.svg',
+  ])('%s is public', (path) => expect(isPublicPath(path)).toBe(true));
 
   it.each([
     '/',
@@ -29,6 +33,8 @@ describe('decideAccess', () => {
   it('allows everything with a session, and skips the sign-in page', () => {
     expect(decideAccess('/clients', '', true)).toEqual({ type: 'allow' });
     expect(decideAccess('/sign-in', '', true)).toEqual({ type: 'redirect', location: '/clients' });
+    expect(decideAccess('/sign-up', '', true)).toEqual({ type: 'redirect', location: '/clients' });
+    expect(decideAccess('/sign-up', '', false)).toEqual({ type: 'allow' });
   });
 });
 

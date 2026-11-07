@@ -29,7 +29,7 @@
 - בראש הסרגל מוצג שם המערכת: **Ordan Cargo Future Clients**.
 - פריטי הניווט: **Clients** ו-**Upload PDF**, עם אייקון לכל פריט. הפריט הפעיל מודגש.
 - אזור התוכן מימין לסרגל, על רקע בהיר.
-- הכניסה למערכת היא דרך מסך **Sign In** (סעיף 1.7), שמוצג בלי המעטפת והסרגל.
+- הכניסה למערכת היא דרך מסך **Sign In** (סעיף 1.7), ויצירת חשבון דרך מסך **Create Account** (סעיף 1.8). שניהם מוצגים בלי המעטפת והסרגל.
 
 ## 1.1 Clients
 
@@ -117,7 +117,8 @@ Modal מעל Client Details, לא יעד ניווט נפרד:
 ## 1.5 ניווט בין המסכים
 
 ```text
-Sign In → Sign in with Google → Clients
+Sign In → Sign in (Username + Password) / Sign in with Google → Clients
+Sign In ⇄ Create Account → Create account → Clients
 Sidebar: Clients | Upload PDF
 Clients
 ├── Upload PDF  → בסיום נשארים ב-Upload PDF
@@ -147,17 +148,53 @@ Clients
 > אין למסך זה תמונת ייחוס. הוא נבנה לפי ה-Style Guide.
 
 ### מטרה
-כניסה למערכת עם חשבון Google. זה המסך היחיד שזמין בלי כניסה.
+כניסה למערכת עם שם משתמש וסיסמה, או עם חשבון Google. זמין בלי כניסה.
+
+### רקע (משותף ל-Sign In ול-Create Account)
+- בלי סרגל הניווט.
+- רקע Navy (`#0F1B3D`) עם מעבר רך ל-Navy Light (`#1B2A55`) בחלק העליון.
+- שני "כתמי אור" Teal מטושטשים ועדינים — בפינה השמאלית העליונה ובפינה הימנית התחתונה.
+- רשת נקודות לבנות עדינה מאוד על כל הרקע.
+- גלים Teal שקופים בתחתית המסך, באותה שפה של הצורות בתחתית סרגל הניווט.
+- ה-Card לבן, במרכז המסך, עם צל עמוק יותר משאר ה-Cards כדי שיבלוט על הרקע הכהה.
 
 ### מה יש במסך
-- רקע `Background`, בלי סרגל הניווט.
 - Card אחד במרכז המסך.
 - שם המערכת בשתי שורות, כמו בסרגל: `Ordan Cargo` ב-Navy ו-`Future Clients` ב-Teal.
+- שדות **Username** ו-**Password**, עם תווית מעל כל שדה.
+- כפתור **Sign in** ברוחב ה-Card, בסגנון Primary.
+- קו מפריד עם המילה `or`.
 - כפתור **Sign in with Google** ברוחב ה-Card, בסגנון Secondary, עם הלוגו של Google, לפי הנחיות המיתוג של Google.
-- אם הכניסה נכשלה: Alert מסוג Error מעל הכפתור.
+- בתחתית: `Don't have an account?` וקישור **Create account**.
+- אם הכניסה נכשלה: Alert מסוג Error מעל השדות (`Wrong username or password.` או `Sign in failed. Please try again.`), והשדות מסומנים באדום. שם המשתמש נשאר בשדה.
 
 ### מה קורה במסך
-לחיצה על הכפתור פותחת את חלון הבחירה של Google. אחרי כניסה מוצלחת המשתמש מגיע ל-**Clients**, או לדף שניסה לפתוח לפני הכניסה.
+- **Sign in** בודק את שם המשתמש והסיסמה. בזמן הבדיקה הכפתור מושבת ומציג `Signing in…`.
+- **Sign in with Google** פותח את חלון הבחירה של Google.
+- אחרי כניסה מוצלחת המשתמש מגיע ל-**Clients**, או לדף שניסה לפתוח לפני הכניסה.
+
+---
+
+## 1.8 Create Account
+
+> אין למסך זה תמונת ייחוס. הוא נבנה לפי ה-Style Guide ובאותו רקע של Sign In.
+
+### מטרה
+יצירת חשבון חדש עם שם משתמש וסיסמה. זמין בלי כניסה.
+
+### מה יש במסך
+- אותו רקע ו-Card כמו ב-Sign In, עם שם המערכת ומתחתיו הטקסט המשני `Create your account`.
+- שדה **Username**, ומתחתיו טקסט עזר: `3–30 characters: English letters, digits, dot, underscore or hyphen.`
+- שדה **Password**, ומתחתיו טקסט עזר: `At least 8 characters.`
+- שדה **Confirm password**.
+- כפתור **Create account** ברוחב ה-Card, בסגנון Primary.
+- בתחתית: `Already have an account?` וקישור **Sign in**.
+- אם יש בעיה: Alert מסוג Error מעל השדות, עם ההודעה המתאימה (PRD 4.1). שם המשתמש נשאר בשדה.
+
+### מה קורה במסך
+- **Create account** יוצר את החשבון. בזמן היצירה הכפתור מושבת ומציג `Creating account…`.
+- אחרי יצירה מוצלחת המשתמש נכנס אוטומטית ומגיע ל-**Clients**.
+- משתמש שכבר מחובר ופותח את המסך מועבר ל-**Clients**.
 
 ---
 

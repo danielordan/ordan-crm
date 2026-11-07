@@ -34,6 +34,9 @@ describe('Database migrations (e2e)', () => {
       '(processing_status, date_added DESC, id DESC)',
     );
     expect(byName.users_google_id_key).toMatch(/UNIQUE INDEX .* \(google_id\)/);
+    expect(byName.users_username_unique).toMatch(
+      /UNIQUE INDEX .* \(username\) WHERE \(username IS NOT NULL\)/,
+    );
   });
 
   it('enables row level security on every table', async () => {

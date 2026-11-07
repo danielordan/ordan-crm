@@ -38,7 +38,7 @@
 | Hosting (Frontend ו-Backend) | Vercel: שני Projects מאותו Repository | הרצת האפליקציה ופריסה אוטומטית מ-GitHub |
 | Source Control | Git Repository ב-GitHub | ניהול הקוד והפעלת הפריסה |
 | API Style | REST + JSON | התקשורת בין ה-Frontend server ל-Backend |
-| Authentication | Sign in with Google (OAuth 2.0 / OpenID Connect) דרך Auth.js ב-Next.js. אין סיסמאות במערכת | זיהוי המשתמשים |
+| Authentication | Auth.js ב-Next.js: שם משתמש וסיסמה (Credentials provider; ה-Backend שומר רק Hash של scrypt), ו-Sign in with Google (OAuth 2.0 / OpenID Connect) | זיהוי המשתמשים |
 | Access protection | Session cookie של Auth.js, נבדק ב-Next.js Proxy + מפתח API בין Next.js ל-Backend | חסימת גישה ללא כניסה או ללא מפתח |
 
 ### 3.1 נימוקים להחלטות המרכזיות
@@ -46,7 +46,7 @@
 - **Vercel ל-Frontend ול-Backend:** הוא תומך ב-Next.js וב-NestJS ישירות מ-GitHub, בלי Docker ובלי תשתית אירוח נוספת. מגבלות הזמן והגודל שלו מתאימות לדרישות המוצר (סעיפים 5.3 ו-7.5). ראו ADR-24.
 - **Supabase:** PostgreSQL מנוהל, שמתאים לנתונים טבלאיים, לחיפוש ולמניעת כפילויות. ה-PRD ממליץ על MongoDB אבל לא מחייב אותו, ואין הצדקה טכנית ל-NoSQL במוצר הזה (ADR-19).
 - **PDF.js ואז OpenAI:** חילוץ הטקסט פשוט וזול, והמודל מחזיר רק נתונים לפי Schema. הכללים העסקיים נשארים בקוד (ADR-3, ADR-4).
-- **Auth.js עם Google:** כניסה בלי לשמור סיסמאות במערכת, כפי שה-PRD דורש (ADR-18).
+- **Auth.js עם Google ועם שם משתמש וסיסמה:** שתי דרכי כניסה באותו מנגנון session (ADR-18, ADR-37). הסיסמאות נבדקות ב-Backend ונשמרות רק כ-Hash.
 - **Modular Monolith אחד:** מתאים למוצר קטן עם תהליך מרכזי אחד (ADR-1).
 
 ### 3.2 סיכונים ומגבלות
@@ -72,14 +72,15 @@
 ┌─────────────────────────────────────┐
 │           Desktop Browser           │
 └─────────────────┬───────────────────┘
-                  │ HTTPS + Google sign-in session cookie
+                  │ HTTPS + sign-in session cookie      
                   ▼
 ┌─────────────────────────────────────┐
 │     Next.js on Vercel               │
-│  - Pages: Sign In, Clients,         │
+│  - Pages: Sign In, Create Account,  │
+│    Clients,                         │
 │    Upload PDF, Client Details       │
 │  - Proxy: session check             │
-│  - Auth.js: Sign in with Google ────┼──► Google OAuth
+│  - Auth.js: Google + Credentials ───┼──► Google OAuth
 │  - Route Handlers: /api/* proxy     │
 └─────────────────┬───────────────────┘
                   │ HTTPS + X-API-Key (server-to-server)
@@ -109,6 +110,7 @@
 - טבלת הלקוחות: Search, Filter, Sort, Pagination ו-Refresh.
 - הצגת פרטי לקוח, עריכה ומחיקה.
 - **כניסה עם Google:** Auth.js עם Google provider. בכניסה, ה-Next.js server קורא ל-Backend (`POST /api/v1/users/google-sign-in`) כדי לרשום את המשתמש בטבלת `users`, אם הוא חדש.
+- **כניסה עם שם משתמש וסיסמה:** Auth.js עם Credentials provider. ה-Next.js server שולח את הפרטים ל-Backend (`POST /api/v1/users/password-sign-in`), שבודק אותם מול ה-Hash. **יצירת חשבון** (`/sign-up`) היא Server Action שקורא ל-`POST /api/v1/users/register` ואז מכניס את המשתמש. הסיסמה לא נשמרת ב-Frontend ולא נרשמת ב-Logs.
 - **הגנת גישה:** Proxy (לשעבר Middleware) שבודק בכל בקשה שיש session תקין של Auth.js. בלי session, דפים מפנים ל-`/sign-in`, ו-`/api/*` מחזירים 401.
 - **Proxy:** Route Handlers תחת `/api/*` שמעבירים את הבקשות ל-Backend בצד השרת ומוסיפים את הכותרת `X-API-Key`.
 
@@ -122,7 +124,8 @@
 
 ```text
 /                → redirect to /clients
-/sign-in         → Sign In (the only page that does not require a session)
+/sign-in         → Sign In (no session required)
+/sign-up         → Create Account (no session required)
 /api/auth/*      → Auth.js routes (Google OAuth callback)
 /clients         → Clients (home)
 /clients/[id]    → Client Details
@@ -161,10 +164,11 @@
 ```text
 src/
 ├── users/
-│   ├── users.controller.ts           ← POST /api/v1/users/google-sign-in
+│   ├── users.controller.ts           ← POST /api/v1/users/google-sign-in, /register, /password-sign-in
 │   ├── users.service.ts
 │   ├── users.repository.ts
-│   └── schemas/
+│   ├── password-hash.ts              ← scrypt hash + verify
+│   └── dto/
 ├── clients/
 │   ├── clients.controller.ts
 │   ├── clients.service.ts
@@ -414,15 +418,20 @@ clients (processing_status, date_added DESC, id DESC)
 
 ### 11.6 User Table
 
-טבלת המשתמשים מכילה **רק** אנשים שנרשמו דרך Google. אין בה סיסמאות.
+טבלת המשתמשים מכילה את מי שנרשם דרך Google ואת מי שיצר חשבון עם שם משתמש וסיסמה. סיסמאות לא נשמרות — רק Hash.
 
 | עמודה | סוג | הערות |
 |---|---|---|
 | `id` | `uuid` | Primary key, `gen_random_uuid()` |
-| `google_id` | `text` not null | `UNIQUE` |
-| `email` | `text` not null | |
+| `google_id` | `text` null | `UNIQUE`. רק למשתמשי Google |
+| `email` | `text` null | רק למשתמשי Google |
 | `name` | `text` null | |
+| `username` | `text` null | באותיות קטנות. Unique partial index `users_username_unique` כש-`IS NOT NULL` |
+| `password_hash` | `text` null | `scrypt$<salt>$<hash>` (salt אקראי של 16 bytes, hash של 64 bytes) |
 | `date_added` | `timestamptz` not null | `DEFAULT now()` |
+
+- `CHECK users_sign_in_method`: לכל משתמש יש `google_id` + `email`, או `username` + `password_hash`.
+- משתמש שם-משתמש-וסיסמה נוצר ב-`INSERT ... ON CONFLICT (username) DO NOTHING`, כך ששם תפוס מחזיר 409 גם בהרשמות מקבילות.
 
 - `google_id` הוא ה-`sub` היציב של Google, ומשמש לזיהוי המשתמש. `email` ו-`name` מתעדכנים מ-Google בכל כניסה.
 - רשומה נוצרת אוטומטית בכניסה הראשונה, ב-`INSERT ... ON CONFLICT (google_id) DO UPDATE` (upsert אטומי). אין מחיקה או עריכה מתוך הממשק.
@@ -430,7 +439,7 @@ clients (processing_status, date_added DESC, id DESC)
 ### 11.7 Database Migrations
 - קובצי SQL ממוספרים בתיקייה `backend/src/migrations` (למשל `001_initial.sql`), שמנוהלים בגרסאות ב-Git.
 - רצים בפקודה אחת על ה-Database שמוגדר ב-`DATABASE_URL`. כל migration רץ בתוך transaction ונרשם ב-`schema_migrations`, כך שהרצה חוזרת היא idempotent.
-- ה-Migrations יוצרים את הטבלאות (`clients`, `users`), את ה-Indexes ואת הפעלת ה-RLS.
+- ה-Migrations יוצרים את הטבלאות (`clients`, `users`), את ה-Indexes ואת הפעלת ה-RLS. `002_password_users.sql` מוסיף את עמודות שם המשתמש והסיסמה.
 - לא משתמשים ב-Supabase CLI (הוא דורש Docker לחלק מהפעולות).
 - **סביבת Production:** Migrations רצות עליה רק באישור מפורש של המשתמש, לפי הנוהל בסעיף 21.
 
@@ -517,6 +526,26 @@ Content-Type: application/json
 - Response: `{ "id": "...", "email": "...", "name": "..." }`.
 - `400` כש-`googleId` או `email` חסרים.
 
+```http
+POST /api/v1/users/register
+Content-Type: application/json
+{ "username": "...", "password": "..." }
+```
+
+- נקרא **רק** משרת ה-Next.js (Server Action של Create Account), עם `X-API-Key`.
+- `username` עובר trim והופך לאותיות קטנות; חייב להתאים ל-`^[a-z0-9._-]{3,30}$`. `password`: 8–128 תווים.
+- `201` עם `{ "id": "...", "email": null, "name": null, "username": "..." }`.
+- `409` עם `error: "USERNAME_TAKEN"` כשהשם תפוס. `400` כשהקלט לא תקין.
+
+```http
+POST /api/v1/users/password-sign-in
+Content-Type: application/json
+{ "username": "...", "password": "..." }
+```
+
+- נקרא **רק** משרת ה-Next.js (Auth.js Credentials provider), עם `X-API-Key`.
+- `200` עם פרטי המשתמש (בלי ה-Hash). `401` עם `error: "INVALID_CREDENTIALS"` לשם משתמש שלא קיים או לסיסמה שגויה — אותה תשובה, ובזמן דומה (בדיקת Hash מתבצעת גם כשהמשתמש לא קיים).
+
 ### 12.4 Health
 
 ```http
@@ -574,14 +603,16 @@ health check בסיסי לבדיקה שה-Backend זמין אחרי פריסה. 
 ## 16. Security
 
 ### 16.1 Access
-- **Sign in with Google** דרך Auth.js. המערכת לא שומרת סיסמאות. כל חשבון Google יכול להירשם; רשומת המשתמש נשמרת ב-`users` בכניסה הראשונה.
+- **Sign in with Google** דרך Auth.js. כל חשבון Google יכול להירשם; רשומת המשתמש נשמרת ב-`users` בכניסה הראשונה.
+- **שם משתמש וסיסמה** דרך Auth.js Credentials provider. הרשמה עצמית פתוחה לכל אחד. הסיסמאות נשמרות רק כ-Hash של `scrypt` עם salt אקראי, ונבדקות ב-`timingSafeEqual`. הסיסמה לא נרשמת ב-Logs (נרשם רק `userId`).
 - **Session:** cookie מוצפן של Auth.js (JWT), `HttpOnly`, `Secure` ב-Production, חתום ב-`AUTH_SECRET`. לא נשמרים sessions ב-Database.
-- **Proxy** ב-Next.js בודק session בכל הדפים וה-Routes, מלבד `/sign-in`, `/api/auth/*` וקבצים סטטיים.
+- **Proxy** ב-Next.js בודק session בכל הדפים וה-Routes, מלבד `/sign-in`, `/sign-up`, `/api/auth/*` וקבצים סטטיים.
 - **API Key Guard** ב-NestJS על כל `/api/v1/*`. המפתח (`BACKEND_API_KEY`) ידוע רק לשרת ה-Next.js ול-Backend.
 - הדפדפן לא פונה ל-Backend ישירות, ולכן אין צורך ב-CORS. ה-CORS ב-Backend כבוי.
 - Rate limiting ב-Backend.
 - אין Roles או Permissions: לכל המשתמשים הרשומים אותן יכולות.
-- ⚠️ מאחר שכל חשבון Google יכול להירשם, כל מי שיש לו חשבון Google יכול לצפות בנתוני הלקוחות. זו החלטת מוצר (PRD 4.1).
+- ⚠️ מאחר שכל חשבון Google יכול להירשם, וכל אחד יכול ליצור חשבון עם שם משתמש וסיסמה, כל מי שמגיע לכתובת המערכת יכול לצפות בנתוני הלקוחות. זו החלטת מוצר (PRD 4.1).
+- ⚠️ אין נעילת חשבון אחרי ניסיונות כושלים. ה-Rate limit של ה-Backend (300 בקשות לדקה) הוא כולל, כי כל הבקשות מגיעות משרת ה-Next.js (ADR-16, ADR-37).
 
 ### 16.2 Transport
 כל התקשורת ב-Production מתבצעת ב-HTTPS/TLS.
@@ -805,6 +836,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 - Delete client.
 - Requests without a valid `X-API-Key` → 401.
 - First Google sign-in → user created in `users`; repeated sign-in → same user, no duplicate.
+- Register → user created with a password hash only; same username in any case → 409; invalid username/password → 400.
+- Password sign-in → 200 with the right password; wrong password or unknown username → 401 `INVALID_CREDENTIALS`.
 - Pages without a session → redirect to `/sign-in`; `/api/*` without a session → 401.
 
 ---
@@ -1027,3 +1060,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** המשתמש ביקש שבעריכת לקוח יהיה אפשר לכתוב רק באנגלית.
 **החלטה:** בעת Save, כל שדה טקסט ששונה (כל השדות מלבד Shipment Type) נדחה אם יש בו אות שאינה A–Z, לפי הביטוי `/[^\P{L}A-Za-z]/u`. ספרות, רווחים וסימני פיסוק מותרים. הבדיקה קיימת גם ב-Frontend (`lib/contact-validation.ts`, הודעה `Use English characters only.` ליד השדה) וגם ב-Backend (`common/validation/contact.ts`, `400` עם `Invalid value for: ...`). כמו ב-ADR-27, ערך שלא שונה לא נבדק.
 **השלכות:** ערכים שחולצו מה-PDF בשפה אחרת נשמרים כפי שהם ולא חוסמים עריכה של שדות אחרים, אבל כדי לשנות אותם צריך לכתוב אותם באנגלית. גם אותיות עם סימנים (למשל `Zürich`) נחסמות.
+
+### ADR-37: כניסה עם שם משתמש וסיסמה, בנוסף ל-Google
+**הקשר:** המשתמש ביקש להוסיף כניסה עם שם משתמש וסיסמה, עם מסך הרשמה עצמית ושם משתמש חופשי (לא מייל), ולעצב מחדש את רקע מסך הכניסה. עד עכשיו המערכת לא שמרה סיסמאות (ADR-18).
+**החלטה:** Auth.js Credentials provider לצד Google, באותו JWT session. ה-Backend מקבל שני endpoints פנימיים: `POST /api/v1/users/register` ו-`POST /api/v1/users/password-sign-in`. הסיסמה נשמרת כ-Hash של `scrypt` המובנה ב-Node (`node:crypto`), עם salt אקראי ובלי תלות חיצונית; ההשוואה ב-`timingSafeEqual`, ובדיקת Hash מדומה כשהמשתמש לא קיים. שם המשתמש נשמר באותיות קטנות עם Unique partial index. Migration `002_password_users.sql` הופך את `google_id` ו-`email` ל-nullable, מוסיף `username` ו-`password_hash`, ו-`CHECK` שלכל משתמש יש דרך כניסה אחת לפחות. מסכי Sign In ו-Create Account חולקים רכיב `AuthLayout` עם רקע Navy, כתמי Teal, רשת נקודות וגלים.
+**השלכות:** המערכת שומרת עכשיו Hash של סיסמאות (לא סיסמאות גלויות). אין שחזור סיסמה, שינוי סיסמה או נעילה אחרי ניסיונות כושלים; ה-Rate limit הכולל של ה-Backend הוא ההגנה היחידה מפני ניחוש. על Production, המשתמש הריץ את `002_password_users.sql` (כולל רישום ב-`schema_migrations`) ב-SQL Editor של `ordan-prod` לפני הפריסה, כמו ב-ADR-34. ADR-18 נשאר בתוקף לכניסה עם Google.
