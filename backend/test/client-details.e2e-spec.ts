@@ -101,12 +101,12 @@ describe('/api/v1/clients/:id (e2e)', () => {
 
     it('becomes Failed and lists the missing fields when required fields are removed', async () => {
       const [client] = await seed(testClient());
-      const res = await patch(client.id, { email: '', shipmentType: null }).expect(200);
+      const res = await patch(client.id, { email: '', incoterms: null }).expect(200);
       expect(res.body).toMatchObject({
         email: null,
-        shipmentType: null,
+        incoterms: null,
         processingStatus: 'Failed',
-        errorDetails: 'Missing required fields: Email, Shipment Type.',
+        errorDetails: 'Missing required fields: Email, Incoterms.',
       });
     });
 

@@ -99,6 +99,8 @@ describe('GET /api/v1/clients (e2e)', () => {
           companyName: 'Galil Trading',
           email: 'sales@galil.com',
           phone: '03-777-0000',
+          originCountry: 'Vietnam',
+          originPort: 'Ho Chi Minh City',
         }),
         testClient({
           companyName: '50% Off_Store',
@@ -135,6 +137,11 @@ describe('GET /api/v1/clients (e2e)', () => {
       expect(await names({ search: '03-555' })).toEqual(['Blue Ocean Imports']);
       expect(await names({ search: '972 3 555' })).toEqual(['Blue Ocean Imports']);
       expect(await names({ search: '037770' })).toEqual(['Galil Trading']);
+    });
+
+    it('searches the other client fields, such as origin country and port', async () => {
+      expect(await names({ search: 'vietnam' })).toEqual(['Galil Trading']);
+      expect(await names({ search: 'Chi Minh' })).toEqual(['Galil Trading']);
     });
 
     it('matches special characters literally', async () => {

@@ -116,7 +116,7 @@ export function ClientsView() {
           <Input
             type="search"
             aria-label="Search clients"
-            placeholder="Search by company name, email or phone"
+            placeholder="Search by company, email, phone, country, port..."
             icon={<Search />}
             value={searchInput}
             maxLength={200}

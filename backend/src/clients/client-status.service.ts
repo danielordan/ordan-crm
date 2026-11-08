@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type { ClientFields, ClientStatus } from './client.types';
 
-// Required for Success, with their display names (ARCHITECTURE 9.1)
+// Required for Success, with their display names (ARCHITECTURE 9.1). Address, Phone and
+// Shipment Type are optional (ADR-39).
 const REQUIRED: [keyof ClientFields, string][] = [
   ['companyName', 'Company Name'],
   ['email', 'Email'],
@@ -9,7 +10,6 @@ const REQUIRED: [keyof ClientFields, string][] = [
   ['originCountry', 'Origin Country'],
   ['destinationPort', 'Destination Port'],
   ['incoterms', 'Incoterms'],
-  ['shipmentType', 'Shipment Type'],
 ];
 
 @Injectable()

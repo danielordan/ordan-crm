@@ -52,10 +52,20 @@ describe('buildListQuery', () => {
     expect(values[0]).toBe('Failed');
   });
 
-  it('searches name and email with escaped input, and phones for phone-like text', () => {
+  it('searches every text field with escaped input, and phones for phone-like text', () => {
     const { text, values } = buildListQuery({ ...base, search: '03-555' });
-    expect(text).toContain(`company_name ILIKE $1 ESCAPE '\\'`);
-    expect(text).toContain(`email ILIKE $1 ESCAPE '\\'`);
+    for (const column of [
+      'company_name',
+      'email',
+      'address',
+      'origin_port',
+      'origin_country',
+      'destination_port',
+      'incoterms',
+      'shipment_type',
+    ]) {
+      expect(text).toContain(`${column} ILIKE $1 ESCAPE '\\'`);
+    }
     expect(text).toContain('phone_digits LIKE $2 OR phone_digits LIKE $3');
     expect(values.slice(0, 3)).toEqual(['%03-555%', '%03555%', '%9723555%']);
   });

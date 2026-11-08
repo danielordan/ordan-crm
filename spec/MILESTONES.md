@@ -31,6 +31,7 @@
 | 4 | PDF Upload & Extraction | Vertical Slice | 3 |
 | 5 | Deployment Readiness & Development Verification | טכני (הכנה ובדיקה) | 4 |
 | 6 | Production Deployment | טכני (פריסה) | 5 |
+| 7 | Extraction & Search Improvements | שיפורים אחרי עלייה לאוויר | 6 |
 
 ---
 
@@ -304,6 +305,33 @@
 - [ ] Clients, Client Details, Edit ו-Delete עובדים ב-Production.
 - [ ] Logs זמינים ב-Runtime Logs של Vercel, ללא תוכן PDF וללא Secrets.
 - [ ] ה-README מעודכן עם הוראות הפריסה וה-Migration.
+
+---
+
+## Milestone 7 — Extraction & Search Improvements ✅
+
+### שם ומטרה
+שיפורים אחרי העלייה ל-Production, לפי משוב מהשימוש בפועל: פחות לקוחות תקינים שנשמרים עם `Failed`, הגבלת ניסיונות חוזרים במסך ההעלאה, וחיפוש בכל פרטי הלקוח.
+
+### מה יש לממש
+- **Shipment Type לא חובה** (PRD 4.4, 4.5; ARCHITECTURE 9.1, ADR-39): הסרתו מרשימת שדות החובה. השדה עדיין מחולץ, נשמר, מוצג וניתן לעריכה.
+- **כלל Email ו-Phone** (PRD 4.5): לקוח עם Email ובלי Phone הוא `Success`. לקוח עם Phone ובלי Email נשאר `Failed`, כדי שאפשר יהיה להתקשר אליו. הכלל כבר מתקיים בקוד, ונוספה לו בדיקה.
+- **Try Again עד 3 פעמים** (PRD 4.3; DESIGN 1.2; ADR-39): אחרי 3 לחיצות שנכשלו לאותו קובץ מוצגת ההודעה `Could not process this file after several attempts. Please handle it manually.` בלי כפתור. קובץ חדש מתחיל שוב מ-3 ניסיונות.
+- **חיפוש בכל פרטי הלקוח** (PRD 4.2; DESIGN 1.1; ARCHITECTURE 12.1, ADR-40): השדה מחפש גם ב-Address, Origin Port, Origin Country, Destination Port, Incoterms ו-Shipment Type. הטקסט בשדה: `Search by company, email, phone, country, port...`.
+- עדכון הבדיקות האוטומטיות.
+
+### תוצר מצופה
+HBL בלי FCL/LCL נשמר עם `Success` כשכל שאר שדות החובה קיימים; מסך ההעלאה מפסיק להציע Try Again אחרי 3 ניסיונות; חיפוש "China" ברשימת הלקוחות מוצא לקוחות שהמשלוח שלהם יצא מסין.
+
+### Definition of Done
+- [ ] העלאת HBL שחסר בו רק Shipment Type יוצרת לקוח עם `Success`, ו-Shipment Type מוצג כ-`NOT Available`.
+- [ ] לקוח עם Email ובלי Phone נשמר עם `Success`. לקוח עם Phone ובלי Email נשמר עם `Failed`, ו-Error Details כולל את Email.
+- [ ] עריכה שמוחקת את Shipment Type לא משנה את הסטטוס ל-`Failed`.
+- [ ] אחרי כשל חילוץ, אפשר ללחוץ **Try Again** עד 3 פעמים. אחרי הכשל השלישי מוצגת הודעת "several attempts" בלי כפתור.
+- [ ] בחירת קובץ חדש אחרי 3 ניסיונות מחזירה את הכפתור **Try Again** במקרה של כשל.
+- [ ] חיפוש לפי מדינת מוצא, נמל מוצא או נמל יעד מוצא את הלקוחות המתאימים. החיפוש לפי שם, מייל וטלפון ממשיך לעבוד.
+- [ ] Lint ו-Tests רצים ועוברים בשתי האפליקציות.
+- [ ] אין שינוי במבנה מסד הנתונים, ולכן אין Migration ל-Production.
 
 ---
 

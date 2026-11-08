@@ -109,19 +109,19 @@ describe('POST /api/v1/documents/process (e2e)', () => {
         result: 'created',
         processingStatus: 'Failed',
         clientId: row.id,
-        errorDetails: 'Missing required fields: Email, Incoterms, Shipment Type.',
+        errorDetails: 'Missing required fields: Email, Incoterms.',
       });
       expect(row).toMatchObject({
         email: null,
         incoterms: null,
         shipment_type: null,
         processing_status: 'Failed',
-        error_details: 'Missing required fields: Email, Incoterms, Shipment Type.',
+        error_details: 'Missing required fields: Email, Incoterms.',
       });
     });
 
-    it('allows a missing Address and Phone in a Success', async () => {
-      const res = await uploadExtracting({ address: null, phone: null });
+    it('allows a missing Address, Phone and Shipment Type in a Success', async () => {
+      const res = await uploadExtracting({ address: null, phone: null, shipmentType: null });
       expect(res.body).toMatchObject({ processingStatus: 'Success' });
       const [row] = await rows();
       expect(row).toMatchObject({ address: null, phone: null, phone_digits: null });

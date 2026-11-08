@@ -38,7 +38,7 @@
 
 ### מה יש במסך
 - כותרת **Clients**, וכפתור Primary **Upload PDF** בצד ימין למעלה.
-- שדה Search עם הטקסט `Search by company name, email or phone`.
+- שדה Search עם הטקסט `Search by company, email, phone, country, port...`.
 - Dropdown לסינון: `All Processing Status`, `Success`, `Failed`.
 - כפתור **Refresh**.
 - טבלת לקוחות עם העמודות: **Company Name**, **Email**, **Phone**, **Date Added**, **Processing Status** ו-**Actions**.
@@ -75,6 +75,7 @@
 | הקובץ אינו PDF | Error | `Only PDF files are supported.` |
 | הקובץ גדול מדי | Error | `File is too large. Maximum size is 4 MB.` |
 | כשל טכני | Error | `Something went wrong. Please try again.` וכפתור **Try Again** |
+| **Try Again** נכשל 3 פעמים לאותו קובץ | Error | `Could not process this file after several attempts. Please handle it manually.`, בלי כפתור |
 
 ### מה קורה במסך
 בחירת PDF או גרירתו מתחילה את העיבוד אוטומטית. בסיום נשארים במסך, ואזור ההעלאה זמין שוב. העלאה חדשה מחליפה את ההודעה הקודמת.

@@ -34,6 +34,18 @@ export function phoneSearchPatterns(search: string): string[] {
   return digits.startsWith('0') && digits.length > 1 ? [digits, `972${digits.slice(1)}`] : [digits];
 }
 
+// Text columns matched by the search box (PRD 4.5, ADR-40). Phone is matched by digits below.
+const SEARCHABLE_COLUMNS = [
+  'company_name',
+  'email',
+  'address',
+  'origin_port',
+  'origin_country',
+  'destination_port',
+  'incoterms',
+  'shipment_type',
+];
+
 // Builds the list query. All user values are bind parameters; the sort direction comes from a
 // fixed enum. Fetches one extra row to know whether a next page exists (ARCHITECTURE 13).
 export function buildListQuery(query: ListClientsQuery): SqlQuery {
@@ -47,8 +59,7 @@ export function buildListQuery(query: ListClientsQuery): SqlQuery {
   if (query.search) {
     const text = param(`%${escapeLike(query.search)}%`);
     const matches = [
-      `company_name ILIKE ${text} ESCAPE '\\'`,
-      `email ILIKE ${text} ESCAPE '\\'`,
+      ...SEARCHABLE_COLUMNS.map((column) => `${column} ILIKE ${text} ESCAPE '\\'`),
       ...phoneSearchPatterns(query.search).map(
         (digits) => `phone_digits LIKE ${param(`%${digits}%`)}`,
       ),

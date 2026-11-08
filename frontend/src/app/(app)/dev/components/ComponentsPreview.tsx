@@ -87,7 +87,7 @@ export function ComponentsPreview() {
           <Input
             className="flex-1"
             icon={<Search />}
-            placeholder="Search by company name, email or phone"
+            placeholder="Search by company, email, phone, country, port..."
           />
           <Select
             className="w-56"

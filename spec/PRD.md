@@ -59,7 +59,7 @@
 - כמשתמש, אני רוצה שהמערכת תבדוק אם הלקוח כבר קיים, כדי שלא ייווצרו כפילויות.
 - כמשתמש, אני רוצה שלקוח חדש יישמר אוטומטית יחד עם פרטי המשלוח, כדי שאוכל לנהל מאגר מסודר של לקוחות פוטנציאליים.
 - כמשתמש, אני רוצה לראות את סטטוס העיבוד של כל לקוח ולסנן לפיו, כדי לאתר במהירות לקוחות שדורשים השלמה.
-- כמשתמש, אני רוצה לחפש לקוחות לפי שם, מייל או טלפון, כדי לאתר לקוח במהירות.
+- כמשתמש, אני רוצה לחפש לקוחות לפי שם, מייל, טלפון או כל פרט אחר של הלקוח (למשל מדינת המוצא של המשלוח), כדי לאתר לקוח במהירות.
 - כמשתמש, אני רוצה לפתוח מסך פרטים של לקוח, כדי לראות את כל המידע, כולל פרטי המשלוח והשגיאות.
 - כמשתמש, אני רוצה לערוך את פרטי הלקוח ואת פרטי המשלוח, כדי לתקן או להשלים מידע ולסגור מקרים שדורשים טיפול.
 - כמשתמש, אני רוצה למחוק לקוח לאחר אישור, כדי להסיר רשומות שאינני רוצה לשמור.
@@ -90,7 +90,7 @@
 1. המערכת מעבדת את ה-PDF.
 2. חסר שדה חובה אחד או יותר, או שהחילוץ נכשל לגמרי.
 3. אם חולץ מידע: הרשומה נשמרת עם Processing Status = `Failed` ו-Error Details. אם החילוץ נכשל לגמרי: לא נוצרת רשומה.
-4. אם נוצרה רשומה, מוצגת ההודעה `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**. אם לא נוצרה, מוצגת ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**.
+4. אם נוצרה רשומה, מוצגת ההודעה `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**. אם לא נוצרה, מוצגת ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**, שאפשר ללחוץ עליו עד 3 פעמים לאותו קובץ.
 5. אם נוצרה רשומה, המשתמש עובר אליה בלחיצה על **Edit Client**, משלים את המידע החסר ושומר. אם כל שדות החובה מלאים, הסטטוס הופך ל-`Success`.
 
 ### ב. User Flows — זרימות משתמש
@@ -162,7 +162,7 @@
 - **Actions**: כפתור **View**.
 
 #### יכולות הטבלה
-- **חיפוש** בשדה אחד, לפי Company Name, Email או Phone. חיפוש טלפון מתעלם מכל תו שאינו ספרה. טקסט השדה: `Search by company name, email or phone`.
+- **חיפוש** בשדה אחד, בכל פרטי הלקוח: Company Name, Email, Phone, Address, Origin Port, Origin Country, Destination Port, Incoterms ו-Shipment Type. חיפוש טלפון מתעלם מכל תו שאינו ספרה. טקסט השדה: `Search by company, email, phone, country, port...`.
 - **סינון** לפי Processing Status: `All Processing Status`, `Success`, `Failed`.
 - **מיון** לפי Date Added. ברירת המחדל: החדשים ראשונים.
 - **Pagination** של 25 לקוחות בעמוד, עם כפתורי **Previous** ו-**Next** בלבד, בלי מספרי עמודים ובלי ספירה כוללת.
@@ -187,6 +187,7 @@
 | הקובץ אינו PDF | `Only PDF files are supported.` |
 | הקובץ גדול מ-4 MB | `File is too large. Maximum size is 4 MB.` |
 | כשל טכני בהעלאה או בתקשורת | `Something went wrong. Please try again.` וכפתור **Try Again** |
+| **Try Again** נלחץ 3 פעמים לאותו קובץ, וגם הניסיון השלישי נכשל | `Could not process this file after several attempts. Please handle it manually.`, בלי כפתור **Try Again**. בחירת קובץ חדש מתחילה שוב מ-3 ניסיונות |
 
 ### 4.4 חילוץ מידע מה-PDF
 - ה-MVP מיועד לקובצי PDF דיגיטליים של HBL, עם טקסט שאפשר לחלץ. אין צורך ב-OCR.
@@ -207,7 +208,7 @@
 | פרטי משלוח | Origin Country (מדינת המוצא שממנה המשלוח יצא בפועל) | כן |
 | פרטי משלוח | Destination Port (נמל יעד) | כן |
 | פרטי משלוח | Incoterms (תנאי מכר) | כן |
-| פרטי משלוח | Shipment Type (`FCL` או `LCL`) | כן |
+| פרטי משלוח | Shipment Type (`FCL` או `LCL`) | לא. לא תמיד מופיע במסמך |
 
 בנוסף נשמרים:
 - **Date Added**: התאריך והשעה שבהם הלקוח נוסף לראשונה.
@@ -218,7 +219,7 @@
 
 | סטטוס | מתי |
 |---|---|
-| `Success` | כל שדות החובה בסעיף 4.4 קיימים. Address ו-Phone יכולים לחסור. |
+| `Success` | כל שדות החובה בסעיף 4.4 קיימים. Address, Phone ו-Shipment Type יכולים לחסור. לקוח עם Email ובלי Phone הוא `Success`. לקוח עם Phone ובלי Email הוא `Failed`, ונשמר כדי שאפשר יהיה להתקשר אליו. |
 | `Failed` | חסר לפחות שדה חובה אחד. Error Details מפרט את כל השדות החסרים. |
 
 #### כשל חילוץ מלא
@@ -294,9 +295,10 @@
 | קובץ שאינו PDF | חסימה והודעה: `Only PDF files are supported.` |
 | קובץ גדול מ-4 MB | חסימה והודעה: `File is too large. Maximum size is 4 MB.` |
 | כשל טכני בהעלאה | הודעת שגיאה וכפתור **Try Again**. |
+| **Try Again** נכשל 3 פעמים לאותו קובץ | ההודעה `Could not process this file after several attempts. Please handle it manually.`, והכפתור **Try Again** לא מוצג יותר. |
 | PDF בלי טקסט, אף שדה שלא חולץ, כשל AI או חריגה מ-60 שניות | לא נוצרת רשומה. מוצגת ההודעה `Could not extract information from the file. Please try again.` והכפתור **Try Again**. |
 | שדה חובה אחד או יותר חסר | שמירה עם `Failed`, ו-Error Details מפרט את כל השדות החסרים. מוצגת ההודעה `Information was extracted, but some required fields are missing.`, רשימת השדות החסרים והכפתור **Edit Client**. |
-| Address או Phone חסרים | שמירה עם `Success`, ותצוגה כ-`NOT Available`. |
+| Address, Phone או Shipment Type חסרים | שמירה עם `Success`, ותצוגה כ-`NOT Available`. |
 | Consignee הוא "TO ORDER" או בנק | Company Name נחשב חסר. |
 | כמה מיילים או טלפונים | נשמר הראשון במסמך. |
 | לקוח כפול | אין רשומה חדשה ואין שינוי ברשומה הקיימת. מוצגת הודעת כפילות. |

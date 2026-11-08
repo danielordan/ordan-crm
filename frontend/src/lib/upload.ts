@@ -37,6 +37,13 @@ const TECHNICAL_FAILURE: UploadOutcome = {
   canRetry: true,
 };
 
+// Try Again can be clicked up to this many times for the same file (PRD 4.3)
+export const MAX_RETRIES = 3;
+export const RETRIES_EXHAUSTED: UploadOutcome = {
+  variant: 'error',
+  message: 'Could not process this file after several attempts. Please handle it manually.',
+};
+
 // A convenience check only; the backend validates the file on its own (ARCHITECTURE 5.4)
 export function validatePdfFile(file: File): UploadOutcome | null {
   if (file.type !== 'application/pdf' || !file.name.toLowerCase().endsWith('.pdf')) return NOT_PDF;

@@ -7,7 +7,13 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 import { SessionExpiredError } from '@/lib/clients-api';
-import { uploadDocument, validatePdfFile, type UploadOutcome } from '@/lib/upload';
+import {
+  MAX_RETRIES,
+  RETRIES_EXHAUSTED,
+  uploadDocument,
+  validatePdfFile,
+  type UploadOutcome,
+} from '@/lib/upload';
 
 // Upload PDF screen (DESIGN 1.2). Processing starts as soon as a file is chosen.
 export function UploadView() {
@@ -18,6 +24,8 @@ export function UploadView() {
   const [outcome, setOutcome] = useState<UploadOutcome | null>(null);
   // Kept in the browser's memory only, so Try Again can send the same file
   const lastFile = useRef<File | null>(null);
+  // Try Again clicks for the current file; a newly chosen file starts again from zero
+  const retries = useRef(0);
 
   // A file dropped outside the drop area would otherwise open in the tab and leave the app
   useEffect(() => {
@@ -30,8 +38,9 @@ export function UploadView() {
     };
   }, []);
 
-  async function processFile(file: File) {
+  async function processFile(file: File, isRetry = false) {
     lastFile.current = file;
+    retries.current = isRetry ? retries.current + 1 : 0;
     const invalid = validatePdfFile(file);
     if (invalid) {
       setOutcome(invalid);
@@ -41,7 +50,9 @@ export function UploadView() {
     setOutcome(null);
     setProcessing(true);
     try {
-      setOutcome(await uploadDocument(file));
+      const result = await uploadDocument(file);
+      // After the last allowed retry fails, stop offering Try Again (PRD 4.3)
+      setOutcome(result.canRetry && retries.current >= MAX_RETRIES ? RETRIES_EXHAUSTED : result);
     } catch (error) {
       if (error instanceof SessionExpiredError) {
         router.replace(`/sign-in?callbackUrl=${encodeURIComponent('/upload')}`);
@@ -134,7 +145,7 @@ export function UploadView() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  if (lastFile.current) void processFile(lastFile.current);
+                  if (lastFile.current) void processFile(lastFile.current, true);
                 }}
               >
                 Try Again

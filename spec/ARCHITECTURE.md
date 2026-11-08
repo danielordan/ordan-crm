@@ -314,13 +314,13 @@ Model name, prompt version ו-timeout מוגדרים בקונפיגורציה. L
 
 ```text
 REQUIRED = companyName, email, originPort, originCountry,
-           destinationPort, incoterms, shipmentType
+           destinationPort, incoterms
 
 all REQUIRED present → processingStatus = Success, errorDetails = null
 otherwise            → processingStatus = Failed,  errorDetails = list of missing fields
 ```
 
-`address` ו-`phone` אינם חובה.
+`address`, `phone` ו-`shipmentType` אינם חובה (ADR-39).
 
 `ClientStatusService` מחשב את הסטטוס ואת `errorDetails` מתוך ערכי הרשומה, ומשמש גם ב-`ProcessingService` וגם ב-PATCH.
 
@@ -458,7 +458,7 @@ GET /api/v1/clients?search=&processingStatus=&sortOrder=&page=&limit=
 
 | פרמטר | ערכים | ברירת מחדל |
 |---|---|---|
-| `search` | טקסט חופשי. נבדק מול `company_name` ו-`email` (`ILIKE`, case-insensitive), ומול `phone_digits` (ספרות בלבד; חיפוש שמתחיל ב-`0` מוצא גם את אותו מספר עם `972`, ADR-21) | — |
+| `search` | טקסט חופשי. נבדק מול כל שדות הטקסט של הלקוח: `company_name`, `email`, `address`, `origin_port`, `origin_country`, `destination_port`, `incoterms` ו-`shipment_type` (`ILIKE`, case-insensitive, ADR-40), ומול `phone_digits` (ספרות בלבד; חיפוש שמתחיל ב-`0` מוצא גם את אותו מספר עם `972`, ADR-21) | — |
 | `processingStatus` | `Success` / `Failed` | הכל |
 | `sortOrder` | `desc` / `asc` (לפי `dateAdded`) | `desc` |
 | `page` | ≥ 1 | 1 |
@@ -1072,3 +1072,13 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** המשתמש ביקש לראות בלוגים מי התחבר ואילו פעולות כל משתמש ביצע. עד עכשיו ה-Backend לא ידע מי שלח את הבקשה, כי ה-Next.js העביר רק את מפתח ה-API.
 **החלטה:** ה-session של Auth.js שומר את `users.id` הפנימי (`token.userId`). בכניסה עם Google, ה-ID שמוחזר מ-`google-sign-in` מחליף את ה-ID של Google באובייקט `user` שבתוך ה-callback `signIn` (בלי Database adapter, Auth.js מעביר את אותו אובייקט ל-callback `jwt`). `proxyToBackend` שולח את ה-ID בכותרת `X-User-Id`, ו-`pino-http` (`customProps`) מוסיף `userId` לכל שורת לוג של הבקשה. `ClientsService` רושם `client_updated` עם שמות השדות ששונו, ו-`client_deleted`. לא נרשמים שם משתמש, מייל או ערכי שדות של לקוחות.
 **השלכות:** session שנוצר לפני השינוי לא כולל ID, והבקשות שלו נרשמות בלי `userId` עד יציאה וכניסה מחדש (או עד שה-session יפוג). ה-Backend סומך על הכותרת כי רק מי שמחזיק במפתח ה-API מגיע אליו. ב-Vercel Hobby הלוגים נשמרים שעה אחת בלבד, ולכן זה לא תחליף להיסטוריית שינויים קבועה; היסטוריה כזו תדרוש טבלה ב-Database. ההחלפה של ה-ID ב-callback `signIn` תלויה בהתנהגות של `next-auth@5.0.0-beta.32`, ויש לבדוק אותה מחדש בעדכון גרסה.
+
+### ADR-39: Shipment Type אינו שדה חובה, ו-Try Again מוגבל ל-3 ניסיונות
+**הקשר:** ב-HBL רבים לא כתוב FCL או LCL, ולכן לקוחות תקינים נשמרו עם `Failed`. בנוסף, אחרי כשל חילוץ אפשר היה ללחוץ על **Try Again** בלי הגבלה, וכל לחיצה שולחת את הקובץ שוב ל-OpenAI. המשתמש ביקש גם לוודא שלקוח עם Email ובלי Phone הוא `Success`, ושלקוח עם Phone ובלי Email נשאר `Failed`.
+**החלטה:** `shipmentType` הוסר מרשימת שדות החובה ב-`ClientStatusService`. השדה נשאר: הוא מחולץ, נשמר, מוצג וניתן לעריכה, כמו Address ו-Phone. Phone כבר לא היה שדה חובה ו-Email כן, ולכן כלל הטלפון והמייל לא דרש שינוי בקוד. ב-`UploadView` נספרות לחיצות **Try Again** לאותו קובץ (בזיכרון הדפדפן בלבד). אחרי 3 לחיצות שנכשלו מוצגת `Could not process this file after several attempts. Please handle it manually.` בלי כפתור. בחירת קובץ חדש מאפסת את הספירה.
+**השלכות:** לא נדרש Migration. רשומות קיימות שנשמרו עם `Failed` רק בגלל Shipment Type חסר נשארות `Failed` עד שמישהו עורך ושומר אותן. המגבלה נאכפת רק בממשק: רענון הדף או בחירה מחדש של אותו קובץ מאפשרים לנסות שוב.
+
+### ADR-40: החיפוש בודק את כל שדות הלקוח
+**הקשר:** המשתמש ביקש לחפש גם לפי פרטים שבתוך הלקוח, למשל מדינת המוצא של המשלוח.
+**החלטה:** אותו שדה Search נבדק עכשיו גם מול `address`, `origin_port`, `origin_country`, `destination_port`, `incoterms` ו-`shipment_type`, ב-`ILIKE` עם אותו escape. כלל הטלפון של ADR-21 לא השתנה.
+**השלכות:** אין Index לעמודות החדשות, ולכן החיפוש סורק את הטבלה. בהיקף הצפוי (אלפי לקוחות) זה מהיר מספיק; אם יהיה איטי, אפשר להוסיף Index מסוג `pg_trgm`. חיפוש קצר מחזיר יותר תוצאות מבעבר, כי הוא מתאים גם לנמלים ולמדינות.

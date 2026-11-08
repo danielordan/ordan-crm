@@ -170,6 +170,26 @@ describe('UploadView', () => {
     await screen.findByText('Client added successfully.');
   });
 
+  it('allows Try Again 3 times, then says the file cannot be processed', async () => {
+    fetchMock.mockImplementation(() => answer({ result: 'extraction_failed' }));
+    const { user, input } = setup();
+
+    await user.upload(input, pdf());
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await user.click(await screen.findByRole('button', { name: 'Try Again' }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(attempt + 1));
+    }
+
+    await screen.findByText(
+      'Could not process this file after several attempts. Please handle it manually.',
+    );
+    expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument();
+
+    // A new file gets its own 3 attempts
+    await user.upload(input, pdf('other.pdf'));
+    await screen.findByRole('button', { name: 'Try Again' });
+  });
+
   it('goes to Sign In when the session has expired', async () => {
     fetchMock.mockImplementation(() => answer({ error: 'UNAUTHORIZED' }, 401));
     const { user, input } = setup();
