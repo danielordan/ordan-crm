@@ -1082,3 +1082,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** המשתמש ביקש לחפש גם לפי פרטים שבתוך הלקוח, למשל מדינת המוצא של המשלוח.
 **החלטה:** אותו שדה Search נבדק עכשיו גם מול `address`, `origin_port`, `origin_country`, `destination_port`, `incoterms` ו-`shipment_type`, ב-`ILIKE` עם אותו escape. כלל הטלפון של ADR-21 לא השתנה.
 **השלכות:** אין Index לעמודות החדשות, ולכן החיפוש סורק את הטבלה. בהיקף הצפוי (אלפי לקוחות) זה מהיר מספיק; אם יהיה איטי, אפשר להוסיף Index מסוג `pg_trgm`. חיפוש קצר מחזיר יותר תוצאות מבעבר, כי הוא מתאים גם לנמלים ולמדינות.
+
+### ADR-41: כתובת vercel.app ברורה במקום Brand verification של Google
+**הקשר:** במסך הבחירה של Google הוצגה הכתובת `ordan-crm-3f91.vercel.app`, והיא נראתה חשודה (Milestone 8). Google מציג שם אפליקציה רק אחרי Brand verification, שדורש דומיין בבעלותנו, דף בית ודף מדיניות פרטיות. לכתובת `vercel.app` אין אפשרות לעבור את האימות הזה.
+**החלטה:** המשתמש בחר בפתרון ביניים ללא עלות: כתובת Production חדשה ל-Frontend ב-Vercel, `ordan-future-clients.vercel.app`, שנוספה גם כ-Origin וכ-Redirect URI ב-OAuth Client של Production (`ordan-crm-production`). הכתובת הישנה נשארת פעילה ורשומה. אין שינוי בקוד ואין משתני סביבה חדשים, כי Auth.js מזהה את הכתובת לפי הבקשה.
+**השלכות:** במסך של Google מוצגת עכשיו הכתובת `ordan-future-clients.vercel.app`, ולא שם אפליקציה. כדי להציג שם, בעתיד יידרשו דומיין משלנו, דף מדיניות פרטיות ו-Brand verification (ראו `spec/plans/milestone-8.md`). כל כתובת Production חדשה צריכה להירשם גם ב-OAuth Client. במהלך הבדיקה התברר ש-`ordan-prod` הושהה בתוכנית החינמית, והכניסה עם Google נכשלה עם `AccessDenied` עד ש-**Resume project** הופעל.
