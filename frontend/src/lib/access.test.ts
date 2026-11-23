@@ -36,6 +36,14 @@ describe('decideAccess', () => {
     expect(decideAccess('/sign-up', '', true)).toEqual({ type: 'redirect', location: '/clients' });
     expect(decideAccess('/sign-up', '', false)).toEqual({ type: 'allow' });
   });
+
+  it('sends unknown URLs to sign-in without a session, so they never reveal a 404', () => {
+    expect(decideAccess('/abc', '', false)).toEqual({
+      type: 'redirect',
+      location: '/sign-in?callbackUrl=%2Fabc',
+    });
+    expect(decideAccess('/abc', '', true)).toEqual({ type: 'allow' });
+  });
 });
 
 describe('safeCallbackUrl', () => {

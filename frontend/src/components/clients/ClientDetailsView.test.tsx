@@ -117,17 +117,20 @@ describe('ClientDetailsView', () => {
       expect(screen.queryByText('Error Details')).not.toBeInTheDocument();
     });
 
-    it('shows Client not found for a missing client', async () => {
+    it('shows the 404 page for a missing client', async () => {
       fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'NOT_FOUND' }, 404));
       render(<ClientDetailsView id={ID} />);
-      expect(await screen.findByText('Client not found.')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Back to Clients' })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Back to Clients' })).toHaveAttribute(
+        'href',
+        '/clients',
+      );
     });
 
-    it('shows Client not found for an invalid ID', async () => {
+    it('shows the 404 page when the backend rejects the ID', async () => {
       fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'BAD_REQUEST' }, 400));
       render(<ClientDetailsView id="abc" />);
-      expect(await screen.findByText('Client not found.')).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
     });
 
     it('offers Try Again after a failed load', async () => {
@@ -283,7 +286,7 @@ describe('ClientDetailsView', () => {
       expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
-    it('shows a general error, not Client not found, when the server rejects a save', async () => {
+    it('shows a general error, not the 404 page, when the server rejects a save', async () => {
       respond(failedClient, jsonResponse({ error: 'BAD_REQUEST' }, 400));
       await renderView();
       await clickButton('Edit');
@@ -295,12 +298,12 @@ describe('ClientDetailsView', () => {
       expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
     });
 
-    it('shows Client not found when the client was deleted meanwhile', async () => {
+    it('shows the 404 page when the client was deleted meanwhile', async () => {
       respond(failedClient, jsonResponse({ error: 'NOT_FOUND' }, 404));
       await renderView();
       await clickButton('Edit');
       await clickButton('Save');
-      expect(await screen.findByText('Client not found.')).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
     });
   });
 

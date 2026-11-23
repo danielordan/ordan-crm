@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { NotFoundContent } from '@/components/ui/NotFoundContent';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import {
   CONSIGNEE_FIELDS,
@@ -173,14 +174,9 @@ export function ClientDetailsView({
     }
   };
 
+  // Missing or deleted client: same content as the 404 page (DESIGN 1.3, 1.9)
   if (loadState === 'not-found') {
-    return (
-      <div className="flex flex-col gap-6">
-        <h1 className="text-h1">Client Details</h1>
-        <BackLink />
-        <Alert variant="error">Client not found.</Alert>
-      </div>
-    );
+    return <NotFoundContent className="min-h-[calc(100vh-4rem)]" />;
   }
 
   if (loadState === 'failed') {

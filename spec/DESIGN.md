@@ -94,6 +94,7 @@
 - Card נפרד של פרטי המשלוח, תחת הכותרת **Shipment Details**: Origin Port, Origin Country, Destination Port, Incoterms, Shipment Type.
 - Card של מצב הרשומה: Date Added בפורמט `Jul 20, 2026 14:32`, ו-Processing Status כ-Badge.
 - Panel של **Error Details** ברקע אדום בהיר, כמו ב-Mockups. מוצג רק כשהסטטוס הוא `Failed`.
+- לקוח שלא קיים, או מזהה לא תקין, מציג את דף **Page Not Found** (1.9).
 
 ### מצב עריכה
 - כל שדות הלקוח ושדות המשלוח הופכים ל-Inputs. **Shipment Type** הוא Dropdown עם הערכים `FCL`, `LCL` ו-`NOT Available`.
@@ -127,6 +128,7 @@ Clients
     ├── Edit → Save / Cancel
     ├── Delete → Delete Confirmation → Clients
     └── Back to Clients
+כתובת לא קיימת / לקוח לא קיים → Page Not Found → Back to Clients
 ```
 
 ---
@@ -196,6 +198,28 @@ Clients
 - **Create account** יוצר את החשבון. בזמן היצירה הכפתור מושבת ומציג `Creating account…`.
 - אחרי יצירה מוצלחת המשתמש נכנס אוטומטית ומגיע ל-**Clients**.
 - משתמש שכבר מחובר ופותח את המסך מועבר ל-**Clients**.
+
+---
+
+## 1.9 Page Not Found
+
+> אין למסך זה תמונת ייחוס. הוא נבנה לפי ה-Style Guide.
+
+### מטרה
+להראות בבירור שהדף המבוקש לא קיים, ולהחזיר את המשתמש ל-**Clients**.
+
+### מה יש במסך
+- בתוך מעטפת המערכת, עם סרגל הניווט בצד.
+- Card לבן במרכז האזור הראשי, עם אייקון בסגנון outline ב-Teal.
+- המספר `404` בגודל H1 ב-Teal, ומתחתיו הכותרת `Page not found`.
+- ההסבר `The page you're looking for doesn't exist or may have been deleted.` בצבע הטקסט המשני.
+- כפתור **Back to Clients** בסגנון Primary.
+
+### מתי מוצג
+- כתובת שלא קיימת במערכת, למשל `/abc`.
+- Client Details של לקוח שלא קיים, או עם מזהה לא תקין.
+- לקוח שנמחק בזמן שמסך ה-Client Details שלו פתוח.
+- משתמש שלא מחובר מועבר קודם ל-Sign In, ורואה את הדף רק אחרי הכניסה.
 
 ---
 

@@ -59,3 +59,10 @@ export function toFormValues(client: Client): ClientFormValues {
 export function toUpdateBody(values: ClientFormValues): ClientFields {
   return { ...values, shipmentType: (values.shipmentType as ShipmentType) || null };
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Client IDs are UUIDs; anything else cannot be a client
+export function isClientId(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
