@@ -386,7 +386,7 @@ HBL בלי FCL/LCL נשמר עם `Success` כשכל שאר שדות החובה �
 
 ---
 
-## Milestone 10 — Wrong Credentials Error Handling
+## Milestone 10 — Wrong Credentials Error Handling ✅
 
 ### שם ומטרה
 משוב המרצה: כניסה עם שם משתמש או סיסמה שגויים מציגה דף שגיאה `This page couldn't load` במקום הודעה. המטרה: להציג את ההודעה שכבר מוגדרת ב-PRD 4.1 וב-DESIGN 1.7.

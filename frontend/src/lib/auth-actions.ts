@@ -1,5 +1,6 @@
 'use server';
 
+import { unstable_rethrow } from 'next/navigation';
 import { AuthError } from 'next-auth';
 import { signIn, signOut } from '@/auth';
 import { safeCallbackUrl, SIGN_IN_PATH } from './access';
@@ -18,7 +19,18 @@ export async function signInWithGoogle(callbackUrl: string): Promise<void> {
   await signIn('google', { redirectTo: safeCallbackUrl(callbackUrl) });
 }
 
+// Wrong credentials are recognised by `type` too, in case the bundle holds two copies of AuthError
+function isWrongCredentials(error: unknown): boolean {
+  if (error instanceof AuthError) return error.type === 'CredentialsSignin';
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { type?: unknown }).type === 'CredentialsSignin'
+  );
+}
+
 // Signs in with username + password. On success Auth.js redirects (throws NEXT_REDIRECT).
+// Any other failure becomes a message on the form, never an error page (Milestone 10).
 async function signInWithCredentials(
   username: string,
   password: string,
@@ -27,13 +39,15 @@ async function signInWithCredentials(
   try {
     await signIn('credentials', { username, password, redirectTo: safeCallbackUrl(callbackUrl) });
   } catch (error) {
-    if (error instanceof AuthError) {
-      return {
-        username,
-        error: error.type === 'CredentialsSignin' ? 'Wrong username or password.' : SIGN_IN_FAILED,
-      };
-    }
-    throw error;
+    // The success redirect is thrown as an error and must reach Next.js
+    unstable_rethrow(error);
+    if (isWrongCredentials(error)) return { username, error: 'Wrong username or password.' };
+    // Only the error type is logged: no username or password
+    console.error('Password sign-in failed', {
+      type:
+        error instanceof AuthError ? error.type : error instanceof Error ? error.name : 'unknown',
+    });
+    return { username, error: SIGN_IN_FAILED };
   }
   return { username };
 }

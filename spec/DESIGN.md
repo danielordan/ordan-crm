@@ -129,6 +129,7 @@ Clients
     ├── Delete → Delete Confirmation → Clients
     └── Back to Clients
 כתובת לא קיימת / לקוח לא קיים → Page Not Found → Back to Clients
+שגיאה לא צפויה → Error Page → Try Again / Back to Clients
 ```
 
 ---
@@ -220,6 +221,23 @@ Clients
 - Client Details של לקוח שלא קיים, או עם מזהה לא תקין.
 - לקוח שנמחק בזמן שמסך ה-Client Details שלו פתוח.
 - משתמש שלא מחובר מועבר קודם ל-Sign In, ורואה את הדף רק אחרי הכניסה.
+
+---
+
+## 1.10 Error Page
+
+> אין למסך זה תמונת ייחוס. הוא נבנה לפי ה-Style Guide, באותו מבנה של Page Not Found.
+
+### מטרה
+להציג הודעה ברורה כשמשהו לא צפוי נכשל, במקום דף השגיאה של הדפדפן, ולאפשר לנסות שוב או לחזור ל-**Clients**.
+
+### מה יש במסך
+- במסך פנימי: בתוך מעטפת המערכת, עם סרגל הניווט בצד. במסכי Sign In ו-Create Account: על רקע Background, בלי סרגל.
+- Card לבן במרכז, עם אייקון אזהרה בסגנון outline באדום, על רקע עגול Error Light.
+- הכותרת `Something went wrong`.
+- ההסבר `An unexpected error occurred. Please try again.` בצבע הטקסט המשני.
+- כפתור **Try Again** בסגנון Primary (טוען מחדש את המסך), וכפתור **Back to Clients** בסגנון Secondary.
+- לא מוצגים פרטים טכניים של השגיאה.
 
 ---
 
