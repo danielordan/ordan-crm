@@ -2,22 +2,26 @@ import { passwordSignInSchema, registerSchema } from './password-credentials.dto
 
 describe('registerSchema', () => {
   it('lowercases and trims the username', () => {
-    expect(registerSchema.parse({ username: '  Dana.K_1 ', password: 'secret123' })).toEqual({
+    expect(registerSchema.parse({ username: '  Dana.K_1 ', password: 'Ordan#Cargo26' })).toEqual({
       username: 'dana.k_1',
-      password: 'secret123',
+      password: 'Ordan#Cargo26',
     });
   });
 
   it.each([
     {},
     { username: 'dana' },
-    { password: 'secret123' },
-    { username: 'ab', password: 'secret123' },
-    { username: 'a'.repeat(31), password: 'secret123' },
-    { username: 'dana k', password: 'secret123' },
-    { username: 'דנה', password: 'secret123' },
+    { username: 'dana', password: '12345678' },
+    { username: 'dana', password: 'secret123' },
+    { username: 'dana', password: 'OrdanCargo26' },
+    { username: 'dana', password: 'Password123!' },
+    { password: 'Ordan#Cargo26' },
+    { username: 'ab', password: 'Ordan#Cargo26' },
+    { username: 'a'.repeat(31), password: 'Ordan#Cargo26' },
+    { username: 'dana k', password: 'Ordan#Cargo26' },
+    { username: 'דנה', password: 'Ordan#Cargo26' },
     { username: 'dana', password: 'short' },
-    { username: 'dana', password: 'x'.repeat(129) },
+    { username: 'dana', password: 'Aa1!'.repeat(33) },
   ])('rejects %p', (body) => {
     expect(registerSchema.safeParse(body).success).toBe(false);
   });

@@ -168,6 +168,7 @@ src/
 │   ├── users.service.ts
 │   ├── users.repository.ts
 │   ├── password-hash.ts              ← scrypt hash + verify
+│   ├── password-policy.ts            ← strong password rules + common passwords list
 │   └── dto/
 ├── clients/
 │   ├── clients.controller.ts
@@ -533,7 +534,7 @@ Content-Type: application/json
 ```
 
 - נקרא **רק** משרת ה-Next.js (Server Action של Create Account), עם `X-API-Key`.
-- `username` עובר trim והופך לאותיות קטנות; חייב להתאים ל-`^[a-z0-9._-]{3,30}$`. `password`: 8–128 תווים.
+- `username` עובר trim והופך לאותיות קטנות; חייב להתאים ל-`^[a-z0-9._-]{3,30}$`. `password`: 10–128 תווים, עם אות גדולה, אות קטנה, ספרה וסימן, ולא מרשימת הסיסמאות הנפוצות (`users/password-policy.ts`, ADR-44).
 - `201` עם `{ "id": "...", "email": null, "name": null, "username": "..." }`.
 - `409` עם `error: "USERNAME_TAKEN"` כשהשם תפוס. `400` כשהקלט לא תקין.
 
@@ -838,7 +839,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 - Delete client.
 - Requests without a valid `X-API-Key` → 401.
 - First Google sign-in → user created in `users`; repeated sign-in → same user, no duplicate.
-- Register → user created with a password hash only; same username in any case → 409; invalid username/password → 400.
+- Register → user created with a password hash only; same username in any case → 409; invalid username, weak password (e.g. `12345678`) or common password → 400.
+- An existing user with an old weak password still signs in (strong rules apply to registration only).
 - Password sign-in → 200 with the right password; wrong password or unknown username → 401 `INVALID_CREDENTIALS`.
 - Pages without a session → redirect to `/sign-in`; `/api/*` without a session → 401.
 
@@ -1097,3 +1099,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** המרצה דיווח שכניסה עם פרטים שגויים הציגה `This page couldn't load` (Milestone 10). בבדיקה, גם מקומית וגם ב-Production, ההודעה `Wrong username or password.` הוצגה כנדרש, וב-Logs של Vercel לא הייתה קריסה. אבל `signInWithCredentials` זרק הלאה כל שגיאה שאינה `AuthError`, ובאפליקציה לא היה Error boundary — כך שכל כשל לא צפוי (Backend לא זמין, דף ישן אחרי פריסה) הציג את דף ברירת המחדל.
 **החלטה:** ב-`lib/auth-actions.ts` רק ההפניה של כניסה מוצלחת ממשיכה הלאה (`unstable_rethrow` של Next.js). פרטים שגויים מזוהים לפי `type === 'CredentialsSignin'` (גם אם יש שני עותקים של המחלקה), וכל שגיאה אחרת מוצגת כ-`Sign in failed. Please try again.` ונרשמת ב-Logs עם סוג השגיאה בלבד, בלי שם משתמש וסיסמה. רכיב משותף `ErrorContent` (DESIGN 1.10) מוצג מ-`app/(app)/error.tsx` (בתוך ה-AppShell), מ-`app/error.tsx` (מחוץ לו) ומ-`app/global-error.tsx` (כשה-Layout הראשי נכשל).
 **השלכות:** אין יותר מצב שבו כשל בכניסה מציג דף שגיאה. שגיאה לא צפויה בכל מסך מציגה דף בעיצוב המערכת עם **Try Again** ו-**Back to Clients**. אין שינוי ב-Backend, במסד הנתונים או במשתני הסביבה.
+
+### ADR-44: כללי סיסמה חזקה בהרשמה
+**הקשר:** המרצה דיווח שאפשר להירשם עם סיסמה חלשה כמו `12345678` (Milestone 11). הכלל היחיד היה 8 תווים לפחות.
+**החלטה:** סיסמה של חשבון חדש חייבת 10–128 תווים, עם אות גדולה, אות קטנה, ספרה וסימן (סימני פיסוק רגילים במקלדת), ולא להופיע ברשימה מובנית של כ-50 סיסמאות נפוצות (השוואה בלי הבדל בין אותיות גדולות לקטנות). ה-Backend הוא המקור הקובע (`users/password-policy.ts`, `registerSchema` → `400`), וה-Frontend בודק את אותם כללים (`lib/password-rules.ts`) כדי להציג מיד הודעה שמפרטת מה חסר. אם ה-Backend בכל זאת מחזיר 400, ה-Frontend מציג `Password does not meet the requirements.`. אין שירות חיצוני ואין תלות חדשה.
+**השלכות:** הכניסה (`password-sign-in`) לא בודקת את הכללים, ולכן משתמשים קיימים עם סיסמה חלשה ממשיכים להיכנס; אין שינוי סיסמה בגרסה הזו. הכללים והרשימה מוגדרים פעמיים (Frontend ו-Backend הן חבילות נפרדות), ו-Tests בשני הצדדים בודקים את אותן דוגמאות כדי לזהות פער. אין שינוי במסד הנתונים ואין Migration.

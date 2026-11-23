@@ -97,8 +97,28 @@ describe('signUpWithPassword', () => {
     mockSignIn.mockRejectedValue(new Error('down'));
     const result = await signUpWithPassword(
       {},
-      form({ username: 'noa', password: 'secret123', confirmPassword: 'secret123' }),
+      form({ username: 'noa', password: 'Ordan#Cargo26', confirmPassword: 'Ordan#Cargo26' }),
     );
     expect(result).toEqual({ username: 'noa', error: 'Sign in failed. Please try again.' });
+  });
+
+  it('blocks a weak password before calling the backend', async () => {
+    const result = await signUpWithPassword(
+      {},
+      form({ username: 'noa', password: '12345678', confirmPassword: '12345678' }),
+    );
+    expect(result.username).toBe('noa');
+    expect(result.error).toMatch(/^Password must include: at least 10 characters/);
+    expect(registerPasswordUser).not.toHaveBeenCalled();
+  });
+
+  it('shows a password message when the backend rejects the password', async () => {
+    vi.mocked(registerPasswordUser).mockResolvedValue('invalid');
+    const result = await signUpWithPassword(
+      {},
+      form({ username: 'noa', password: 'Ordan#Cargo26', confirmPassword: 'Ordan#Cargo26' }),
+    );
+    expect(result).toEqual({ username: 'noa', error: 'Password does not meet the requirements.' });
+    expect(mockSignIn).not.toHaveBeenCalled();
   });
 });

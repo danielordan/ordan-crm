@@ -43,9 +43,11 @@ export async function registerGoogleUser(user: GoogleUser): Promise<{ id: string
 // Creates a username + password user. Returns 'taken' when the username already exists.
 export async function registerPasswordUser(
   credentials: PasswordCredentials,
-): Promise<'created' | 'taken'> {
+): Promise<'created' | 'taken' | 'invalid'> {
   const response = await postToUsers('register', credentials);
   if (response.status === 409) return 'taken';
+  // The backend is the final judge of the rules (e.g. if the two sides ever drift apart)
+  if (response.status === 400) return 'invalid';
   if (!response.ok) throw new Error(`Sign up failed with status ${response.status}`);
   return 'created';
 }

@@ -189,7 +189,7 @@ Clients
 ### מה יש במסך
 - אותו רקע ו-Card כמו ב-Sign In, עם שם המערכת ומתחתיו הטקסט המשני `Create your account`.
 - שדה **Username**, ומתחתיו טקסט עזר: `3–30 characters: English letters, digits, dot, underscore or hyphen.`
-- שדה **Password**, ומתחתיו טקסט עזר: `At least 8 characters.`
+- שדה **Password**, ומתחתיו טקסט עזר: `At least 10 characters, with an uppercase letter, a lowercase letter, a digit and a symbol (like ! or #).`
 - שדה **Confirm password**.
 - כפתור **Create account** ברוחב ה-Card, בסגנון Primary.
 - בתחתית: `Already have an account?` וקישור **Sign in**.

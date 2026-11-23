@@ -76,6 +76,9 @@ export async function signUpWithPassword(
   try {
     const result = await registerPasswordUser({ username, password });
     if (result === 'taken') return { username, error: 'This username is already taken.' };
+    if (result === 'invalid') {
+      return { username, error: 'Password does not meet the requirements.' };
+    }
   } catch (error) {
     console.error('Sign up failed', { error: String(error) });
     return { username, error: 'Could not create the account. Please try again.' };

@@ -5,7 +5,7 @@ import { AuthField } from '@/components/auth/AuthField';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { signUpWithPassword, type PasswordFormState } from '@/lib/auth-actions';
-import { PASSWORD_MAX_LENGTH, USERNAME_MAX_LENGTH } from '@/lib/password-rules';
+import { PASSWORD_HINT, PASSWORD_MAX_LENGTH, USERNAME_MAX_LENGTH } from '@/lib/password-rules';
 
 // Create account with username + password (PRD 4.1, DESIGN 1.8)
 export function SignUpForm() {
@@ -37,7 +37,7 @@ export function SignUpForm() {
         aria-describedby="password-hint"
       />
       <p id="password-hint" className="-mt-2 text-body-sm text-text-secondary">
-        At least 8 characters.
+        {PASSWORD_HINT}
       </p>
       <AuthField
         id="confirmPassword"

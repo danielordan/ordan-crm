@@ -5,6 +5,7 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/common/app-setup';
+import { hashPassword } from '../src/users/password-hash';
 import { createTestDatabase, dropTestDatabase } from './db';
 
 const KEY = process.env.BACKEND_API_KEY as string;
@@ -94,42 +95,64 @@ describe('Username + password users (e2e)', () => {
   });
 
   it('registers a user and stores only a password hash', async () => {
-    const res = await post('register', { username: 'Dana', password: 'secret123' }).expect(201);
+    const res = await post('register', { username: 'Dana', password: 'Ordan#Cargo26' }).expect(201);
     expect(res.body).toEqual({ id: expect.any(String), email: null, name: null, username: 'dana' });
 
     const { rows } = await pool!.query('SELECT * FROM users WHERE username = $1', ['dana']);
     expect(rows).toHaveLength(1);
     expect(rows[0].password_hash).toMatch(/^scrypt\$/);
-    expect(rows[0].password_hash).not.toContain('secret123');
+    expect(rows[0].password_hash).not.toContain('Ordan#Cargo26');
     expect(rows[0].google_id).toBeNull();
   });
 
   it('rejects a username that is already taken, in any case', async () => {
-    await post('register', { username: 'eli', password: 'secret123' }).expect(201);
-    const res = await post('register', { username: 'ELI', password: 'other-pass' }).expect(409);
+    await post('register', { username: 'eli', password: 'Ordan#Cargo26' }).expect(201);
+    const res = await post('register', { username: 'ELI', password: 'Other#Pass99' }).expect(409);
     expect(res.body.error).toBe('USERNAME_TAKEN');
   });
 
   it.each([
-    { username: 'ab', password: 'secret123' },
-    { username: 'dana k', password: 'secret123' },
+    { username: 'ab', password: 'Ordan#Cargo26' },
+    { username: 'dana k', password: 'Ordan#Cargo26' },
     { username: 'valid_name', password: 'short' },
+    { username: 'valid_name', password: '12345678' },
+    { username: 'valid_name', password: 'ordan#cargo26' },
+    { username: 'valid_name', password: 'Password123!' },
   ])('returns 400 for registration %p', async (body) => {
     expect((await post('register', body).expect(400)).body.error).toBe('BAD_REQUEST');
   });
 
+  it('does not echo a weak password back in the 400 response', async () => {
+    const res = await post('register', { username: 'weak', password: '12345678' }).expect(400);
+    expect(JSON.stringify(res.body)).not.toContain('12345678');
+    const { rows } = await pool!.query('SELECT id FROM users WHERE username = $1', ['weak']);
+    expect(rows).toHaveLength(0);
+  });
+
+  it('still lets an existing user with an old weak password sign in', async () => {
+    // Created directly, as accounts were before the strong password rules
+    await pool!.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [
+      'old_user',
+      await hashPassword('12345678'),
+    ]);
+    const res = await post('password-sign-in', { username: 'old_user', password: '12345678' });
+    expect(res.status).toBe(200);
+    expect(res.body.username).toBe('old_user');
+  });
+
   it('signs in with the right password, case-insensitive username', async () => {
-    await post('register', { username: 'noa', password: 'secret123' }).expect(201);
-    const res = await post('password-sign-in', { username: 'NOA', password: 'secret123' }).expect(
-      200,
-    );
+    await post('register', { username: 'noa', password: 'Ordan#Cargo26' }).expect(201);
+    const res = await post('password-sign-in', {
+      username: 'NOA',
+      password: 'Ordan#Cargo26',
+    }).expect(200);
     expect(res.body).toEqual({ id: expect.any(String), email: null, name: null, username: 'noa' });
     expect(res.body).not.toHaveProperty('passwordHash');
   });
 
   it.each([
     { username: 'noa', password: 'wrong-pass' },
-    { username: 'nobody', password: 'secret123' },
+    { username: 'nobody', password: 'Ordan#Cargo26' },
   ])('returns 401 for wrong credentials %p', async (body) => {
     const res = await post('password-sign-in', body).expect(401);
     expect(res.body.error).toBe('INVALID_CREDENTIALS');

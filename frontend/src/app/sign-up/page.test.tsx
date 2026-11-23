@@ -9,6 +9,9 @@ describe('Sign Up page', () => {
     expect(screen.getByRole('heading', { name: /Ordan Cargo\s*Future Clients/ })).toBeVisible();
     expect(screen.getByLabelText('Username')).toBeVisible();
     expect(screen.getByLabelText('Password')).toHaveAttribute('autocomplete', 'new-password');
+    expect(screen.getByLabelText('Password')).toHaveAccessibleDescription(
+      'At least 10 characters, with an uppercase letter, a lowercase letter, a digit and a symbol (like ! or #).',
+    );
     expect(screen.getByLabelText('Confirm password')).toHaveAttribute('type', 'password');
     expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled();
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in');
