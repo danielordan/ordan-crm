@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { ActivityLogService, type ActivityEntry } from '../activity-log/activity-log.service';
+import { NO_ACTOR, type Actor } from '../common/request-actor';
 import { toClientWrite } from '../clients/client.mapper';
 import { ClientStatusService } from '../clients/client-status.service';
 import type { ClientFields } from '../clients/client.types';
@@ -36,12 +38,16 @@ export class ProcessingService {
     private readonly duplicates: DuplicateDetectionService,
     private readonly status: ClientStatusService,
     private readonly clients: ClientsRepository,
+    private readonly activity: ActivityLogService,
   ) {
     this.logger.setContext(ProcessingService.name);
   }
 
-  async process(pdf: Buffer): Promise<ProcessingResult> {
+  // Every upload ends with exactly one activity_logs row that holds its outcome (ADR-45)
+  async process(pdf: Buffer, actor: Actor = NO_ACTOR): Promise<ProcessingResult> {
     this.logEvent('document_received');
+    const record = (entry: Omit<ActivityEntry, 'actor'>) =>
+      this.activity.record({ ...entry, actor });
     try {
       const extracted = await this.extract(pdf);
       if (extracted instanceof ExtractionError) {
@@ -50,11 +56,21 @@ export class ProcessingService {
           'extraction_failed',
         );
         this.logOutcome('EXTRACTION_FAILED');
+        await record({
+          action: 'extraction_failed',
+          result: 'failure',
+          details: { outcome: 'EXTRACTION_FAILED', reason: extracted.category },
+        });
         return { result: 'extraction_failed' };
       }
-      return await this.save(extracted);
+      return await this.save(extracted, record);
     } catch (error) {
       this.logOutcome('TECHNICAL_FAILURE');
+      await record({
+        action: 'processing_failed',
+        result: 'failure',
+        details: { outcome: 'TECHNICAL_FAILURE' },
+      });
       throw error;
     }
   }
@@ -77,8 +93,12 @@ export class ProcessingService {
     }
   }
 
-  private async save(fields: ClientFields): Promise<ProcessingResult> {
-    if (await this.duplicates.findDuplicate(fields)) return this.duplicate();
+  private async save(
+    fields: ClientFields,
+    record: (entry: Omit<ActivityEntry, 'actor'>) => Promise<void>,
+  ): Promise<ProcessingResult> {
+    const existingId = await this.duplicates.findDuplicate(fields);
+    if (existingId) return this.duplicate(record, existingId);
 
     const clientStatus = this.status.compute(fields);
     let clientId: string;
@@ -86,16 +106,23 @@ export class ProcessingService {
       clientId = await this.clients.create(toClientWrite(fields, clientStatus));
     } catch (error) {
       // Two simultaneous uploads can both pass the check above; the unique index decides (11.5)
-      if (isUniqueViolation(error)) return this.duplicate();
+      if (isUniqueViolation(error)) return this.duplicate(record, null);
       throw error;
     }
 
     this.logEvent('client_created', { clientId });
+    const outcome: Outcome =
+      clientStatus.processingStatus === 'Success' ? 'AUTO_SUCCESS' : 'MANUAL_REVIEW';
+    this.logOutcome(outcome);
+    await record({
+      action: 'client_created',
+      result: 'success',
+      clientId,
+      details: { outcome, processingStatus: clientStatus.processingStatus },
+    });
     if (clientStatus.processingStatus === 'Success') {
-      this.logOutcome('AUTO_SUCCESS');
       return { result: 'created', processingStatus: 'Success', clientId };
     }
-    this.logOutcome('MANUAL_REVIEW');
     return {
       result: 'created',
       processingStatus: 'Failed',
@@ -104,9 +131,19 @@ export class ProcessingService {
     };
   }
 
-  private duplicate(): ProcessingResult {
+  // existingId is null when a simultaneous upload won the race and its ID is not known here
+  private async duplicate(
+    record: (entry: Omit<ActivityEntry, 'actor'>) => Promise<void>,
+    existingId: string | null,
+  ): Promise<ProcessingResult> {
     this.logEvent('duplicate_detected');
     this.logOutcome('DUPLICATE_SKIPPED');
+    await record({
+      action: 'duplicate_detected',
+      result: 'success',
+      clientId: existingId,
+      details: { outcome: 'DUPLICATE_SKIPPED' },
+    });
     return { result: 'duplicate' };
   }
 

@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { NO_ACTOR, type Actor } from '../common/request-actor';
 import { isEnglishText, isValidEmail, isValidPhone } from '../common/validation/contact';
 import { toClient, toClientFields, toClientListItem, toClientWrite } from './client.mapper';
 import { ClientStatusService } from './client-status.service';
@@ -67,6 +69,7 @@ export class ClientsService {
     private readonly clients: ClientsRepository,
     private readonly status: ClientStatusService,
     private readonly duplicates: DuplicateDetectionService,
+    private readonly activity: ActivityLogService,
   ) {
     this.logger.setContext(ClientsService.name);
   }
@@ -87,7 +90,7 @@ export class ClientsService {
     return toClient(row);
   }
 
-  async update(id: string, changes: UpdateClientDto): Promise<Client> {
+  async update(id: string, changes: UpdateClientDto, actor: Actor = NO_ACTOR): Promise<Client> {
     const current = await this.clients.findById(id);
     if (!current) throw new NotFoundException('Client not found.');
     assertValidContactFields(changes, current);
@@ -104,29 +107,42 @@ export class ClientsService {
       throw duplicateClient();
     }
 
+    let updated: ClientRow | null;
     try {
-      const updated = await this.clients.update(id, write);
-      if (!updated) throw new NotFoundException('Client not found.');
-      this.logger.info(
-        {
-          event: 'client_updated',
-          clientId: id,
-          changedFields: changedFieldNames(changes, before),
-          processingStatus: updated.processing_status,
-        },
-        'client_updated',
-      );
-      return toClient(updated);
+      updated = await this.clients.update(id, write);
     } catch (error) {
       // Two simultaneous saves can both pass the check above; the unique index decides (11.5)
       if (isUniqueViolation(error)) throw duplicateClient();
       throw error;
     }
+    if (!updated) throw new NotFoundException('Client not found.');
+
+    const details = {
+      changedFields: changedFieldNames(changes, before),
+      processingStatus: updated.processing_status,
+    };
+    this.logger.info({ event: 'client_updated', clientId: id, ...details }, 'client_updated');
+    await this.activity.record({
+      action: 'client_updated',
+      result: 'success',
+      actor,
+      clientId: id,
+      details,
+    });
+    return toClient(updated);
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string, actor: Actor = NO_ACTOR): Promise<void> {
     const deleted = await this.clients.delete(id);
     if (!deleted) throw new NotFoundException('Client not found.');
     this.logger.info({ event: 'client_deleted', clientId: id }, 'client_deleted');
+    // The company name keeps the row understandable after the client is gone (ADR-45)
+    await this.activity.record({
+      action: 'client_deleted',
+      result: 'success',
+      actor,
+      clientId: id,
+      details: { companyName: deleted.companyName },
+    });
   }
 }

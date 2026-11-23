@@ -199,8 +199,12 @@ export class ClientsRepository {
   }
 
   // Returns whether a client was deleted
-  async delete(id: string): Promise<boolean> {
-    const { rowCount } = await this.pool.query('DELETE FROM clients WHERE id = $1', [id]);
-    return rowCount === 1;
+  // Returns the deleted client's company name for the activity log, or null when not found
+  async delete(id: string): Promise<{ companyName: string | null } | null> {
+    const { rows } = await this.pool.query<{ companyName: string | null }>(
+      'DELETE FROM clients WHERE id = $1 RETURNING company_name AS "companyName"',
+      [id],
+    );
+    return rows[0] ?? null;
   }
 }

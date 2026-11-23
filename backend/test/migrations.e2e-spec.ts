@@ -34,6 +34,9 @@ describe('Database migrations (e2e)', () => {
       '(processing_status, date_added DESC, id DESC)',
     );
     expect(byName.users_google_id_key).toMatch(/UNIQUE INDEX .* \(google_id\)/);
+    expect(byName.activity_logs_created_at_idx).toContain('(created_at DESC)');
+    expect(byName.activity_logs_user_idx).toContain('(user_id, created_at DESC)');
+    expect(byName.activity_logs_client_idx).toContain('(client_id, created_at DESC)');
     expect(byName.users_username_unique).toMatch(
       /UNIQUE INDEX .* \(username\) WHERE \(username IS NOT NULL\)/,
     );
@@ -47,6 +50,7 @@ describe('Database migrations (e2e)', () => {
       [TEST_SCHEMA],
     );
     expect(rows).toEqual([
+      { relname: 'activity_logs', relrowsecurity: true },
       { relname: 'clients', relrowsecurity: true },
       { relname: 'schema_migrations', relrowsecurity: true },
       { relname: 'users', relrowsecurity: true },

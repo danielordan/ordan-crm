@@ -1,5 +1,6 @@
 import { Controller, HttpCode, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { RequestActor, type Actor } from '../common/request-actor';
 import { ProcessingService, type ProcessingResult } from '../processing/processing.service';
 import { assertPdfFile, type UploadedPdf } from './validators/pdf-file.validator';
 
@@ -10,8 +11,11 @@ export class DocumentsController {
   @Post('process')
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('file'))
-  process(@UploadedFile() file: UploadedPdf | undefined): Promise<ProcessingResult> {
+  process(
+    @UploadedFile() file: UploadedPdf | undefined,
+    @RequestActor() actor: Actor,
+  ): Promise<ProcessingResult> {
     assertPdfFile(file);
-    return this.processing.process(file.buffer);
+    return this.processing.process(file.buffer, actor);
   }
 }

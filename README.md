@@ -132,7 +132,34 @@ The old version keeps running between steps 2 and 3, so a migration must stay co
 ### Keeping it running
 
 - On the Supabase free plan, `ordan-prod` pauses after a week of low activity. Reactivate it with **Resume project** in the dashboard.
-- Logs are in Vercel → the project → Logs. On the Hobby plan they are kept for one hour.
+- Logs are in Vercel → the project → Logs. On the Hobby plan they are kept for one hour. For a permanent history, use the activity log below.
+
+### Activity log
+
+Every sign-up, sign-in (including failed ones), upload result, client edit and client delete is saved in the `activity_logs` table, and kept forever.
+
+To view it: Supabase dashboard → the project (`ordan-prod` for Production, the Development project for local work) → **Table Editor** → `activity_logs`. Sort by `created_at` to see the latest first.
+
+Each row shows when (`created_at`, in UTC), who (`user_id`), what (`action`), which client (`client_id`), whether it worked (`result`) and short extra facts (`details`, for example the names of edited fields). Passwords, usernames, emails, document text and edited values are never stored.
+
+To see names instead of user IDs, run this in the **SQL Editor**:
+
+```sql
+SELECT a.created_at, COALESCE(u.username, u.email) AS who, a.action, a.client_id, a.result, a.details
+FROM activity_logs a
+LEFT JOIN users u ON u.id = a.user_id
+ORDER BY a.created_at DESC
+LIMIT 200;
+```
+
+The full history of one client (replace the ID):
+
+```sql
+SELECT * FROM activity_logs
+WHERE client_id = '00000000-0000-0000-0000-000000000000'
+ORDER BY created_at;
+```
+
 - The Vercel Hobby plan is for non-commercial use only. Company use requires Pro.
 
 ## Security notes

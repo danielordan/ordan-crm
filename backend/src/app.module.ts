@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ActivityLogModule } from './activity-log/activity-log.module';
 import { ClientsModule } from './clients/clients.module';
 import { AppConfigModule } from './common/config/app-config.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -21,6 +22,7 @@ export const RATE_LIMIT = { ttl: 60_000, limit: 300 };
     LoggingModule,
     ThrottlerModule.forRoot([RATE_LIMIT]),
     DatabaseModule,
+    ActivityLogModule,
     UsersModule,
     ClientsModule,
     DocumentsModule,

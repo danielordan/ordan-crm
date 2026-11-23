@@ -9,6 +9,7 @@ import {
   Patch,
   Query,
 } from '@nestjs/common';
+import { RequestActor, type Actor } from '../common/request-actor';
 import { parseOrBadRequest } from '../common/validation/parse';
 import type { Client, ClientListResponse } from './client.types';
 import { ClientsService } from './clients.service';
@@ -30,13 +31,17 @@ export class ClientsController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown): Promise<Client> {
-    return this.clients.update(id, parseOrBadRequest(updateClientSchema, body));
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @RequestActor() actor: Actor,
+  ): Promise<Client> {
+    return this.clients.update(id, parseOrBadRequest(updateClientSchema, body), actor);
   }
 
   @Delete(':id')
   @HttpCode(204)
-  delete(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.clients.delete(id);
+  delete(@Param('id', ParseUUIDPipe) id: string, @RequestActor() actor: Actor): Promise<void> {
+    return this.clients.delete(id, actor);
   }
 }

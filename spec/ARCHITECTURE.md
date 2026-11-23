@@ -366,6 +366,7 @@ phone_digits:            digits only (for search)
 ```text
 clients
 users
+activity_logs       ← permanent record of actions (11.8)
 schema_migrations   ← internal: which migrations were applied
 ```
 
@@ -440,9 +441,26 @@ clients (processing_status, date_added DESC, id DESC)
 ### 11.7 Database Migrations
 - קובצי SQL ממוספרים בתיקייה `backend/src/migrations` (למשל `001_initial.sql`), שמנוהלים בגרסאות ב-Git.
 - רצים בפקודה אחת על ה-Database שמוגדר ב-`DATABASE_URL`. כל migration רץ בתוך transaction ונרשם ב-`schema_migrations`, כך שהרצה חוזרת היא idempotent.
-- ה-Migrations יוצרים את הטבלאות (`clients`, `users`), את ה-Indexes ואת הפעלת ה-RLS. `002_password_users.sql` מוסיף את עמודות שם המשתמש והסיסמה.
+- ה-Migrations יוצרים את הטבלאות (`clients`, `users`), את ה-Indexes ואת הפעלת ה-RLS. `002_password_users.sql` מוסיף את עמודות שם המשתמש והסיסמה. `003_activity_logs.sql` יוצר את `activity_logs` (11.8).
 - לא משתמשים ב-Supabase CLI (הוא דורש Docker לחלק מהפעולות).
 - **סביבת Production:** Migrations רצות עליה רק באישור מפורש של המשתמש, לפי הנוהל בסעיף 21.
+
+### 11.8 Activity Log Table
+
+רישום קבוע של כל פעולה: מי, מה, על איזה לקוח ומתי (ADR-45). שורה אחת לכל פעולה.
+
+| עמודה | סוג | הערות |
+|---|---|---|
+| `id` | `uuid` | Primary key, `gen_random_uuid()` |
+| `created_at` | `timestamptz` not null | `DEFAULT now()`, UTC |
+| `user_id` | `uuid` null | המשתמש שביצע (`users.id`). בלי Foreign key |
+| `action` | `text` not null | סוג הפעולה (סעיף 18). בלי `CHECK` |
+| `client_id` | `uuid` null | הלקוח, כשרלוונטי. בלי Foreign key, כי השורה נשארת אחרי מחיקת הלקוח |
+| `result` | `text` not null | `CHECK (result IN ('success','failure'))` |
+| `details` | `jsonb` null | פרטים קצרים (סעיף 18) |
+| `request_id` | `text` null | ה-Request ID, לחיבור ל-Logs של Vercel |
+
+Indexes: `(created_at DESC)`, `(user_id, created_at DESC)`, `(client_id, created_at DESC)`. RLS מופעל, בלי policies. הצפייה בטבלה היא דרך ה-Table Editor או ה-SQL Editor של Supabase (README); אין מסך לוגים באפליקציה.
 
 ---
 
@@ -637,6 +655,8 @@ health check בסיסי לבדיקה שה-Backend זמין אחרי פריסה. 
 ### 16.7 Logging
 אין לכתוב ללוגים: טקסט PDF מלא, API keys, credentials, `DATABASE_URL`, `AUTH_SECRET`, OAuth tokens, או PII מעבר למה שנדרש לצורך debugging.
 
+בטבלת `activity_logs` לא נשמרים: סיסמאות, Hash, שם משתמש, מייל, מפתחות, tokens, טקסט ה-PDF, ערכים שחולצו מהמסמך או ערכי שדות בעריכה. היוצא היחיד הוא שם החברה של לקוח שנמחק (ADR-45).
+
 ---
 
 ## 17. Error Handling
@@ -684,6 +704,21 @@ Missing required fields: Email, Incoterms.
 - **מי ביצע את הפעולה:** שרת ה-Next.js שולח בכל בקשה ל-Backend את הכותרת `X-User-Id` עם ה-`users.id` של המשתמש המחובר (נשמר ב-session). ה-Backend מוסיף `userId` לכל שורת לוג של הבקשה: צפייה ברשימה ובלקוח, עריכה, מחיקה והעלאה. רק UUID תקין מתקבל. כדי לדעת מי המשתמש, מחפשים את ה-`userId` בטבלת `users` (ADR-38).
 - אין לשמור באירועים את תוכן המסמך.
 - Logs זמינים ב-Runtime Logs של Vercel. הם נשמרים שעה אחת ב-Hobby ויום אחד ב-Pro.
+- **רישום קבוע (`activity_logs`, סעיף 11.8, ADR-45):** בנוסף ל-Logs, כל פעולה מהטבלה הבאה נשמרת כשורה במסד הנתונים. כל העלאה יוצרת שורה אחת עם התוצאה. צפייה ברשימה ובפרטי לקוח לא נרשמת.
+
+| `action` | מתי | `result` | `user_id` | `client_id` | `details` |
+|---|---|---|---|---|---|
+| `user_registered` | הרשמה עם סיסמה | success | המשתמש החדש | — | `method` |
+| `user_signed_in` | כניסה מוצלחת | success | המשתמש | — | `method`: `password` / `google` |
+| `password_sign_in_failed` | כניסה שנכשלה | failure | בעל החשבון אם שם המשתמש קיים, אחרת ריק | — | `method` |
+| `client_created` | העלאה שיצרה לקוח | success | המעלה | הלקוח החדש | `outcome` (`AUTO_SUCCESS` / `MANUAL_REVIEW`), `processingStatus` |
+| `duplicate_detected` | העלאה של לקוח קיים | success | המעלה | הלקוח הקיים (ריק בהעלאות מקבילות) | `outcome: DUPLICATE_SKIPPED` |
+| `extraction_failed` | לא חולץ מידע | failure | המעלה | — | `outcome: EXTRACTION_FAILED`, `reason` |
+| `processing_failed` | תקלה לא צפויה | failure | המעלה | — | `outcome: TECHNICAL_FAILURE` |
+| `client_updated` | עריכה שנשמרה | success | העורך | הלקוח | `changedFields` (שמות בלבד), `processingStatus` |
+| `client_deleted` | מחיקה | success | המוחק | הלקוח שנמחק | `companyName` |
+
+- הכתיבה לטבלה ממתינה לסיום לפני שהתשובה נשלחת, ולא זורקת שגיאה: כשל נרשם ב-Logs כ-`activity_log_write_failed`, והפעולה עצמה ממשיכה.
 
 ### 18.1 Processing Outcome ו-KPI
 כל העלאה רושמת אירוע `processing_outcome` עם אחד מהערכים הבאים:
@@ -698,7 +733,7 @@ TECHNICAL_FAILURE   → unexpected error
 
 `KPI = AUTO_SUCCESS ÷ (total − DUPLICATE_SKIPPED)`
 
-הערכים האלה לא נשמרים ברשומת הלקוח ולא מוצגים ב-UI. בגלל זמן השמירה הקצר של ה-Logs, ה-KPI ניתן לבדיקה בעיקר בבדיקות יזומות. מדידה רציפה לאורך זמן תדרוש פתרון נוסף, שאינו חלק מהמסמך הזה.
+הערכים האלה לא נשמרים ברשומת הלקוח ולא מוצגים ב-UI. הם נשמרים ב-`details.outcome` של `activity_logs`, ולכן אפשר לחשב את ה-KPI לאורך זמן בשאילתה ב-SQL Editor.
 
 ---
 
@@ -804,6 +839,7 @@ Push to main (GitHub) → Vercel build (Root Directory: backend) → Production 
 | Client | נשמר ב-Database עד מחיקה ידנית (hard delete, אין recycle bin). |
 | PDF | זיכרון בלבד, בזמן הבקשה. לא נשמר. |
 | Shipment details | נשמרים ברשומה בעת יצירתה. לא מתעדכנים מ-HBL נוסף של אותו לקוח, וניתנים לעריכה ידנית. |
+| Activity log | נשמר לתמיד, בלי מחיקה אוטומטית. במחיקת לקוח השורות שלו נשארות, עם שם החברה בשורת המחיקה. |
 
 ---
 
@@ -843,6 +879,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 - An existing user with an old weak password still signs in (strong rules apply to registration only).
 - Password sign-in → 200 with the right password; wrong password or unknown username → 401 `INVALID_CREDENTIALS`.
 - Pages without a session → redirect to `/sign-in`; `/api/*` without a session → 401.
+- Registration, sign-in (password and Google), failed sign-in, every upload outcome, edit and delete → one `activity_logs` row each, with the user, request ID and client when relevant; no passwords, usernames, document text or edited values.
+- The `activity_logs` table cannot be written → every action above still succeeds.
 
 ---
 
@@ -1104,3 +1142,8 @@ ShipmentDataExtractor      extract(text): ExtractedShipmentData → OpenAIShipme
 **הקשר:** המרצה דיווח שאפשר להירשם עם סיסמה חלשה כמו `12345678` (Milestone 11). הכלל היחיד היה 8 תווים לפחות.
 **החלטה:** סיסמה של חשבון חדש חייבת 10–128 תווים, עם אות גדולה, אות קטנה, ספרה וסימן (סימני פיסוק רגילים במקלדת), ולא להופיע ברשימה מובנית של כ-50 סיסמאות נפוצות (השוואה בלי הבדל בין אותיות גדולות לקטנות). ה-Backend הוא המקור הקובע (`users/password-policy.ts`, `registerSchema` → `400`), וה-Frontend בודק את אותם כללים (`lib/password-rules.ts`) כדי להציג מיד הודעה שמפרטת מה חסר. אם ה-Backend בכל זאת מחזיר 400, ה-Frontend מציג `Password does not meet the requirements.`. אין שירות חיצוני ואין תלות חדשה.
 **השלכות:** הכניסה (`password-sign-in`) לא בודקת את הכללים, ולכן משתמשים קיימים עם סיסמה חלשה ממשיכים להיכנס; אין שינוי סיסמה בגרסה הזו. הכללים והרשימה מוגדרים פעמיים (Frontend ו-Backend הן חבילות נפרדות), ו-Tests בשני הצדדים בודקים את אותן דוגמאות כדי לזהות פער. אין שינוי במסד הנתונים ואין Migration.
+
+### ADR-45: טבלת לוג פעולות במסד הנתונים
+**הקשר:** ה-Logs של Vercel נשמרים שעה אחת עד יום אחד, ולכן אי אפשר לדעת לאורך זמן מי ביצע איזו פעולה (Milestone 12, ADR-38).
+**החלטה:** טבלה `activity_logs` (Migration `003_activity_logs.sql`, סעיף 11.8), ושורה אחת לכל פעולה לפי הטבלה בסעיף 18. `ActivityLogService` (Module גלובלי) כותב `INSERT` אחד; ה-Decorator `@RequestActor()` מעביר מה-Controller את `userId` (מ-`X-User-Id`) ואת ה-Request ID לשירותים. הכתיבה ממתינה לסיום (כדי שלא תלך לאיבוד כש-Vercel עוצר את הפונקציה) ובולעת כל שגיאה, שנרשמת ב-Logs כ-`activity_log_write_failed`. אין Foreign keys, כדי שהיסטוריה תישאר אחרי מחיקה ושהרישום לא ייכשל בגלל טבלה אחרת. החלטות המשתמש: לא נרשמת צפייה; בעריכה נשמרים רק שמות השדות; במחיקה נשמר שם החברה; הלוגים נשמרים לתמיד. `ClientsRepository.delete` מחזיר את שם החברה (`RETURNING`).
+**השלכות:** כל פעולה מוסיפה פנייה אחת למסד הנתונים. הטבלה גדלה לתמיד; בהיקף הצפוי היא קטנה מאוד, ואם יידרש — אפשר להוסיף מחיקה של שורות ישנות. שם החברה של לקוח שנמחק נשאר בלוג. ניסיון כניסה עם שם משתמש שלא קיים נרשם בלי משתמש, כי שם המשתמש לא נשמר. ה-Logs של Vercel ממשיכים כמו קודם. אין שינוי ב-Frontend ואין משתני סביבה חדשים. על Production, המשתמש הריץ את `003_activity_logs.sql` (כולל רישום ב-`schema_migrations`) ב-SQL Editor של `ordan-prod` לפני הפריסה, כמו ב-ADR-34 ו-ADR-37.
